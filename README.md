@@ -1,32 +1,38 @@
-# xcstrings-translator - 完整功能总结
+# xcstrings-translator
 
-## 🚀 项目概述
+## 🚀 Project Overview
 
-xcstrings-translator是一个强大的命令行工具，专门用于翻译iOS/macOS应用的Localizable.xcstrings文件。该工具支持多种翻译服务提供商，具备高性能的并发翻译能力。
+xcstrings-translator is a powerful command-line tool specifically designed for translating Localizable.xcstrings files for iOS/macOS applications. This tool supports multiple translation service providers and boasts high-performance concurrent translation capabilities.
 
-## ✨ 核心功能
+**Read this in other languages: [中文](README_zh.md)**
 
-### 🔌 多翻译服务支持
-- **Google Translate API**: 支持神经机器翻译模型
-- **DeepL API**: 提供高质量翻译，支持免费和专业版
-- **Baidu Translate API**: 百度翻译服务
-- **OpenAI API**: 支持GPT系列模型的翻译能力
 
-### ⚡ 高性能并发
-- 基于Worker Pool模式的并发控制
-- 可配置的并发请求数量
-- 优雅的错误处理和重试机制
-- 上下文超时控制
+## ✨ Core Functionality
 
-### 📁 xcstrings文件处理
-- 完整解析和生成xcstrings JSON格式
-- 智能检测需要翻译的字符串
-- 保留原有翻译，只翻译缺失的语言版本
-- 保持文件结构和元数据完整性
+### 🔌 Multi-Translation Service Support
 
-## 🛠️ 技术实现
+- **Google Translate API**: Supports neural machine translation models
+- **DeepL API**: Provides high-quality translation, supporting both free and professional versions
+- **Baidu Translate API**: Baidu Translate service
+- **OpenAI API**: Supports translation capabilities of GPT series models
 
-### 🏗️ 架构设计
+### ⚡ High-Performance Concurrency
+
+- Concurrency control based on Worker Pool mode
+- Configurable number of concurrent requests
+- Elegant error handling and retry mechanism
+- Context timeout control
+
+### 📁 xcstrings File Processing
+
+- Complete parsing and generation of xcstrings JSON format
+- Intelligent detection of strings requiring translation
+- Preserve original translations, translating only missing language versions
+- Maintain file structure and metadata integrity
+
+## 🛠️ Technical Implementation
+
+### 🏗️ Architecture design
 ```
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
 │   CLI Layer     │     │  Service Layer  │     │ Provider Layer  │
@@ -42,98 +48,103 @@ xcstrings-translator是一个强大的命令行工具，专门用于翻译iOS/ma
 └─────────────────┘     └─────────────────┘     └─────────────────┘
 ```
 
-### 📊 并发模型
-- 使用Goroutine和Channel实现并发
-- Worker Pool模式控制并发度
-- Context机制实现超时控制
-- WaitGroup等待所有任务完成
+### 📊 Concurrency Model
 
-### 🔧 主要技术栈
-- **Go 1.21+**: 主编程语言
-- **Cobra**: CLI框架
-- **resty**: HTTP客户端
-- **JSON**: xcstrings文件格式处理
-- **MD5**: Baidu API签名生成
+- Concurrency is achieved using Goroutines and Channels
+- Concurrency is controlled using the Worker Pool pattern
+- Timeout control is implemented using the Context mechanism
+- WaitGroup waits for all tasks to complete
 
-## 📋 使用示例
+### 🔧 Main Technology Stack
+
+- **Go 1.21+**: Main programming language
+- **Cobra**: CLI framework
+- **resty**: HTTP client
+- **JSON**: xcstrings file format processing
+- **MD5**: Baidu API signature generation
+
+## 📋 Usage Examples
 
 ### Google Translate
 ```bash
-xcstrings-translator google \
-  --api-key "AIzaSy..." \
-  --input "Localizable.xcstrings" \
-  --output "Localizable_zh.xcstrings" \
-  --source-language "en" \
-  --target-languages "zh-Hans" "ja" \
-  --concurrency 10 \
-  --verbose
+xcstrings-translator google \ 
+--api-key "AIzaSy..." \ 
+--input "Localizable.xcstrings" \ 
+--output "Localizable_zh.xcstrings" \ 
+--source-language "en" \ 
+--target-languages ​​"zh-Hans" "ja" \ 
+--concurrency 10 \ 
+--verbose
 ```
 
 ### DeepL
 ```bash
-xcstrings-translator deepl \
-  --api-key "2a7f4..." \
-  --free \
-  --input "Localizable.xcstrings" \
-  --output "Localizable_translated.xcstrings" \
-  --target-languages "zh-Hans"
+xcstrings-translator deepl \ 
+--api-key "2a7f4..." \ 
+--free \ 
+--input "Localizable.xcstrings" \ 
+--output "Localizable_translated.xcstrings" \ 
+--target-languages ​​"zh-Hans"
 ```
 
 ### Baidu Translate
 ```bash
-xcstrings-translator baidu \
-  --app-id "2024..." \
-  --app-secret "f4K..." \
-  --input "Localizable.xcstrings" \
-  --output "Localizable_baidu.xcstrings"
+xcstrings-translator baidu \ 
+--app-id "2024..." \ 
+--app-secret "f4K..." --input "Localizable.xcstrings" --output "Localizable_baidu.xcstrings"
+
 ```
 
 ### OpenAI
 ```bash
-xcstrings-translator openai \
-  --api-key "sk-proj..." \
-  --model "gpt-4" \
-  --input "Localizable.xcstrings" \
-  --output "Localizable_ai.xcstrings"
+xcstrings-translator openai
+--api-key "sk-proj..."
+--model "gpt-4"
+--input "Localizable.xcstrings" --output "Localizable_ai.xcstrings"
+
 ```
 
-## 🔒 安全特性
-- API密钥通过命令行参数或环境变量传递
-- 不存储敏感信息
-- HTTPS加密传输
-- 输入验证和错误处理
+## 🔒 Security Features
 
-## 📈 性能优化
-- 连接池复用
-- 请求批处理
-- 智能重试机制
-- 内存高效处理
+- API keys are passed via command-line arguments or environment variables
+- No sensitive information is stored
+- HTTPS encrypted transmission
+- Input validation and error handling
 
-## 🎯 适用场景
-- iOS/macOS应用本地化
-- 批量翻译字符串资源
-- CI/CD流水线集成
-- 多语言应用开发
+## 📈 Performance Optimizations
 
-## 📚 扩展能力
-- 易于添加新的翻译服务提供商
-- 支持自定义翻译规则
-- 可集成到自动化工作流
-- 支持大型项目的分批次翻译
+- Connection pool reuse
+- Batch request processing
+- Intelligent retry mechanism
+- Efficient memory management
 
-## 🔮 未来功能规划
-- [ ] 翻译缓存机制
-- [ ] 翻译质量评估
-- [ ] 批量文件处理
-- [ ] 翻译记忆库
-- [ ] 交互式翻译确认
+## 🎯 Applicable Scenarios
 
-## 🤝 贡献指南
-欢迎贡献代码、报告问题或提出建议。项目采用标准的GitHub工作流：
-1. Fork项目
-2. 创建特性分支
-3. 提交更改
-4. 创建Pull Request
+- iOS/macOS application localization
+- Batch translation of string resources
+- CI/CD pipeline integration
+- Multilingual application development
 
-## 📄 许可证
-本项目采用MIT许可证，详情请参见LICENSE文件。
+## 📚 Scalability
+
+- Easy addition of new translation service providers
+- Support for custom translation rules
+- Integration into automated workflows
+- Support for batch translation of large projects
+
+## 🔮 Future Feature Plans
+
+- [ ] Translation caching mechanism
+- [ ] Translation quality assessment
+- [ ] Batch file processing
+- [ ] Translation memory
+- [ ] Interactive translation confirmation
+
+## 🤝 Contribution Guidelines Contributions, problem reporting, and suggestions are welcome. The project uses a standard GitHub workflow:
+
+1. Fork the project
+2. Create a feature branch
+3. Submit changes
+4. Create a pull request
+
+## 📄 License This project is licensed under the MIT license. Please see the LICENSE file for details.
