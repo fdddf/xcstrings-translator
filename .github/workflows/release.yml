@@ -1,0 +1,91 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build and Package Release
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            GOOS: linux
+            GOARCH: amd64
+            target: linux-amd64
+          - os: ubuntu-latest
+            GOOS: linux
+            GOARCH: arm64
+            target: linux-arm64
+          - os: macos-latest
+            GOOS: darwin
+            GOARCH: amd64
+            target: darwin-amd64
+          - os: macos-latest
+            GOOS: darwin
+            GOARCH: arm64
+            target: darwin-arm64
+          - os: windows-latest
+            GOOS: windows
+            GOARCH: amd64
+            target: windows-amd64
+            ext: .exe
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.25.3'
+
+    - name: Get tag name
+      shell: bash
+      run: echo "TAG_NAME=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+
+    - name: Build binary
+      shell: bash
+      run: |
+        mkdir -p dist
+        GOOS=${{ matrix.GOOS }} GOARCH=${{ matrix.GOARCH }} go build -o "dist/xcstrings-translator-${{ matrix.target }}${{ matrix.ext }}" .
+        chmod +x "dist/xcstrings-translator-${{ matrix.target }}${{ matrix.ext }}"
+
+    - name: Package as ZIP
+      shell: bash
+      run: |
+        cd dist
+        zip "xcstrings-translator-${{ matrix.target }}.zip" "xcstrings-translator-${{ matrix.target }}${{ matrix.ext }}"
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: xcstrings-translator-${{ matrix.target }}
+        path: dist/xcstrings-translator-${{ matrix.target }}.zip
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v3
+      with:
+        path: assets
+
+    - name: Display structure of downloaded files
+      run: ls -R assets
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          assets/*/*.zip
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
