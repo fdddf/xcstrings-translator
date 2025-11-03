@@ -51,7 +51,7 @@ jobs:
         zip "xcstrings-translator-${{ matrix.target }}.zip" "xcstrings-translator-${{ matrix.target }}${{ matrix.ext }}"
 
     - name: Upload artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: xcstrings-translator-${{ matrix.target }}
         path: dist/xcstrings-translator-${{ matrix.target }}.zip
@@ -62,7 +62,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Download all artifacts
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         path: assets
 
