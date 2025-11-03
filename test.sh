@@ -41,13 +41,13 @@ cat example.xcstrings | jq '.strings | keys'
 echo
 
 # Test dry run (without actual translation)
-# echo "5. Testing dry run with Google provider (simulated)..."
-# ./xcstrings-translator google \
-#     --api-key "test-key" \
-#     --input "example.xcstrings" \
-#     --output "example_translated.xcstrings" \
-#     --target-languages "zh-Hans" \
-#     --verbose 2>&1 | grep -E "(Loading|Found|strings|Exiting)"
+echo "5. Testing dry run with Google provider (simulated)..."
+./xcstrings-translator google \
+    --api-key "test-key" \
+    --input "example.xcstrings" \
+    --output "example_translated.xcstrings" \
+    --target-languages "zh-Hans" \
+    --verbose 2>&1 | grep -E "(Loading|Found|strings|Exiting)"
 
 echo
 echo "=== Test completed ==="

@@ -17,20 +17,20 @@ var baiduCmd = &cobra.Command{
 	Long: `Translate Localizable.xcstrings file using Baidu Translate API.
 	
 Requires a valid Baidu Translate API AppID and AppSecret.`,
-	Run: runBaiduTranslate,
+	RunE: runBaiduTranslate,
 }
 
 func init() {
 	rootCmd.AddCommand(baiduCmd)
 
 	// Baidu specific flags
-	baiduCmd.Flags().StringP("app-id", "i", "", "Baidu Translate AppID (required)")
-	baiduCmd.Flags().StringP("app-secret", "s", "", "Baidu Translate AppSecret (required)")
+	baiduCmd.Flags().String("app-id", "", "Baidu Translate AppID (required)")
+	baiduCmd.Flags().String("app-secret", "", "Baidu Translate AppSecret (required)")
 	baiduCmd.MarkFlagRequired("app-id")
 	baiduCmd.MarkFlagRequired("app-secret")
 }
 
-func runBaiduTranslate(cmd *cobra.Command, args []string) {
+func runBaiduTranslate(cmd *cobra.Command, args []string) error {
 	// Get flags
 	inputFile, _ := cmd.Flags().GetString("input")
 	outputFile, _ := cmd.Flags().GetString("output")
@@ -58,7 +58,7 @@ func runBaiduTranslate(cmd *cobra.Command, args []string) {
 	xcstrings, err := model.LoadXCStrings(inputFile)
 	if err != nil {
 		fmt.Printf("Error loading xcstrings file: %v\n", err)
-		return
+		return err
 	}
 
 	// Override source language if specified
@@ -77,7 +77,7 @@ func runBaiduTranslate(cmd *cobra.Command, args []string) {
 
 	if len(requests) == 0 {
 		fmt.Println("No strings to translate. Exiting.")
-		return
+		return nil
 	}
 
 	// Create translator
@@ -131,9 +131,10 @@ func runBaiduTranslate(cmd *cobra.Command, args []string) {
 	err = model.SaveXCStrings(outputFile, xcstrings)
 	if err != nil {
 		fmt.Printf("Error saving output file: %v\n", err)
-		return
+		return err
 	}
 
 	fmt.Printf("Translation completed successfully!\n")
 	fmt.Printf("Results saved to: %s\n", outputFile)
+	return nil
 }

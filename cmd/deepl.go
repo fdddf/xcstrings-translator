@@ -24,9 +24,9 @@ func init() {
 	rootCmd.AddCommand(deeplCmd)
 
 	// DeepL specific flags
-	deeplCmd.Flags().StringP("api-key", "k", "", "DeepL API key (required)")
-	deeplCmd.Flags().BoolP("free", "f", false, "Use DeepL free API tier")
-	deeplCmd.Flags().StringP("formality", "m", "default", "Formality level (default, more, less)")
+	deeplCmd.Flags().String("api-key", "", "DeepL API key (required)")
+	deeplCmd.Flags().Bool("free", false, "Use DeepL free API tier")
+	deeplCmd.Flags().String("formality", "default", "Formality level (default, more, less)")
 	deeplCmd.MarkFlagRequired("api-key")
 }
 

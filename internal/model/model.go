@@ -11,6 +11,7 @@ import (
 type XCStrings struct {
 	SourceLanguage string                 `json:"sourceLanguage"`
 	Strings        map[string]StringEntry `json:"strings"`
+	Version        string                 `json:"version"`
 }
 
 // StringEntry represents a single string entry with its localizations

@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
-	"time"
 
 	"xcstrings-translator/internal/model"
 
@@ -61,7 +60,6 @@ func (b *BaiduTranslator) Translate(ctx context.Context, req model.TranslationRe
 	apiURL := "https://fanyi-api.baidu.com/api/trans/vip/translate"
 
 	// Generate random salt
-	rand.Seed(time.Now().UnixNano())
 	salt := strconv.Itoa(rand.Intn(1000000000))
 
 	// Generate sign

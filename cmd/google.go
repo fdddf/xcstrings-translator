@@ -24,9 +24,9 @@ func init() {
 	rootCmd.AddCommand(googleCmd)
 
 	// Google specific flags
-	googleCmd.Flags().StringP("api-key", "k", "", "Google Cloud API key (required)")
-	googleCmd.Flags().StringP("model", "m", "nmt", "Translation model (nmt or base)")
-	googleCmd.Flags().StringP("glossary", "g", "", "Glossary to use for translation")
+	googleCmd.Flags().String("api-key", "", "Google Cloud API key (required)")
+	googleCmd.Flags().String("model", "nmt", "Translation model (nmt or base)")
+	googleCmd.Flags().String("glossary", "", "Glossary to use for translation")
 	googleCmd.MarkFlagRequired("api-key")
 }
 

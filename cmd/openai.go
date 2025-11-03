@@ -24,11 +24,11 @@ func init() {
 	rootCmd.AddCommand(openaiCmd)
 
 	// OpenAI specific flags
-	openaiCmd.Flags().StringP("api-key", "k", "", "OpenAI API key (required)")
-	openaiCmd.Flags().StringP("api-base-url", "u", "https://api.openai.com", "API base URL")
-	openaiCmd.Flags().StringP("model", "m", "gpt-3.5-turbo", "Model to use for translation")
-	openaiCmd.Flags().Float64P("temperature", "t", 0.3, "Temperature for translation")
-	openaiCmd.Flags().IntP("max-tokens", "x", 1024, "Maximum tokens for translation")
+	openaiCmd.Flags().String("api-key", "", "OpenAI API key (required)")
+	openaiCmd.Flags().String("api-base-url", "https://api.openai.com", "API base URL")
+	openaiCmd.Flags().String("model", "gpt-3.5-turbo", "Model to use for translation")
+	openaiCmd.Flags().Float64("temperature", 0.3, "Temperature for translation")
+	openaiCmd.Flags().Int("max-tokens", 1024, "Maximum tokens for translation")
 	openaiCmd.MarkFlagRequired("api-key")
 }
 
