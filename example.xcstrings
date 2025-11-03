@@ -1,0 +1,55 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "welcome.message": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Welcome to our app!"
+          }
+        }
+      }
+    },
+    "button.login": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Login"
+          }
+        }
+      }
+    },
+    "button.signup": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign Up"
+          }
+        }
+      }
+    },
+    "error.network": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Network connection error. Please try again."
+          }
+        }
+      }
+    },
+    "success.profile.updated": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profile updated successfully!"
+          }
+        }
+      }
+    }
+  }
+}
