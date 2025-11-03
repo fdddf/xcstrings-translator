@@ -15,14 +15,6 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: ubuntu-latest
-            GOOS: linux
-            GOARCH: amd64
-            target: linux-amd64
-          - os: ubuntu-latest
-            GOOS: linux
-            GOARCH: arm64
-            target: linux-arm64
           - os: macos-latest
             GOOS: darwin
             GOARCH: amd64
@@ -31,11 +23,6 @@ jobs:
             GOOS: darwin
             GOARCH: arm64
             target: darwin-arm64
-          - os: windows-latest
-            GOOS: windows
-            GOARCH: amd64
-            target: windows-amd64
-            ext: .exe
     
     steps:
     - name: Checkout code
