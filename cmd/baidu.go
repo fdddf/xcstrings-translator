@@ -5,9 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"xcstrings-translator/internal/model"
-	"xcstrings-translator/internal/translator"
-
+	"github.com/fdddf/xcstrings-translator/internal/model"
+	"github.com/fdddf/xcstrings-translator/internal/translator"
 	"github.com/spf13/cobra"
 )
 

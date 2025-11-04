@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"xcstrings-translator/internal/model"
+	"github.com/fdddf/xcstrings-translator/internal/model"
 
 	"github.com/go-resty/resty/v2"
 )

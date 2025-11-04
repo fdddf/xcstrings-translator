@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strings"
 
-	"xcstrings-translator/internal/model"
+	"github.com/fdddf/xcstrings-translator/internal/model"
 
 	"github.com/go-resty/resty/v2"
 )

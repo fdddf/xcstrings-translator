@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"xcstrings-translator/internal/model"
+	"github.com/fdddf/xcstrings-translator/internal/model"
 )
 
 // TranslationService manages the translation process with concurrency
@@ -141,6 +141,7 @@ func CreateTranslationRequests(xcstrings *model.XCStrings, targetLanguages []str
 func ApplyTranslations(xcstrings *model.XCStrings, responses []model.TranslationResponse) {
 	for _, resp := range responses {
 		if resp.Error != nil {
+			fmt.Printf("Error translating key %s: %v\n", resp.Key, resp.Error)
 			continue
 		}
 

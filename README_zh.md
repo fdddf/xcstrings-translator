@@ -55,6 +55,14 @@ xcstrings-translator是一个强大的命令行工具，专门用于翻译iOS/ma
 - **JSON**: xcstrings文件格式处理
 - **MD5**: Baidu API签名生成
 
+## 安装
+To install, run:
+```
+go install github.com/fdddf/xcstrings-translator@latest
+```
+
+Or download the binary from the [releases page](https://github.com/fdddf/xcstrings-translator/releases).
+
 ## 📋 使用示例
 
 ### Google Translate

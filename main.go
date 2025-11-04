@@ -1,8 +1,6 @@
 package main
 
-import (
-	"xcstrings-translator/cmd"
-)
+import "github.com/fdddf/xcstrings-translator/cmd"
 
 func main() {
 	cmd.Execute()

@@ -63,6 +63,14 @@ xcstrings-translator is a powerful command-line tool specifically designed for t
 - **JSON**: xcstrings file format processing
 - **MD5**: Baidu API signature generation
 
+## Installation
+To install, run:
+```
+go install github.com/fdddf/xcstrings-translator@latest
+```
+
+Or download the binary from the [releases page](https://github.com/fdddf/xcstrings-translator/releases).
+
 ## 📋 Usage Examples
 
 ### Google Translate
