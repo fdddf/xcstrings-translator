@@ -101,10 +101,17 @@ func CreateTranslationRequests(xcstrings *model.XCStrings, targetLanguages []str
 	var requests []model.TranslationRequest
 
 	for key, entry := range xcstrings.Strings {
+		if entry.ShouldTranslate != nil && *entry.ShouldTranslate == false {
+			continue
+		}
 		// Get source text (from source language)
 		sourceText := ""
 		if sourceLangEntry, ok := entry.Localizations[xcstrings.SourceLanguage]; ok {
 			sourceText = sourceLangEntry.StringUnit.Value
+		}
+
+		if key != "" && sourceText == "" {
+			sourceText = key
 		}
 
 		if sourceText == "" {

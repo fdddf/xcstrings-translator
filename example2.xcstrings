@@ -1,0 +1,25 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "" : {
+      "shouldTranslate" : false
+    },
+    "🎁 Subscribe Premium Plan to Unlock All Features" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "🎁 Premium-Plan abonnieren, um alle Funktionen zu entsperren"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "🎁 订阅高级会员以解锁全部功能"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

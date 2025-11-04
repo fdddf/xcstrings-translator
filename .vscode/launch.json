@@ -12,7 +12,7 @@
             "program": "main.go",
             "args": [
                 "baidu",
-                "-i", "${workspaceFolder}/example.xcstrings",
+                "-i", "${workspaceFolder}/example2.xcstrings",
                 "--app-id", "${env:BAIDU_APP_ID}",
                 "--app-secret", "${env:BAIDU_APP_SECRET}",
                 "-s", "en",

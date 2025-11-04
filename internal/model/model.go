@@ -16,7 +16,8 @@ type XCStrings struct {
 
 // StringEntry represents a single string entry with its localizations
 type StringEntry struct {
-	Localizations map[string]Localization `json:"localizations"`
+	Localizations   map[string]Localization `json:"localizations,omitempty"`
+	ShouldTranslate *bool                   `json:"shouldTranslate,omitempty"`
 }
 
 // Localization represents a localization for a specific language
