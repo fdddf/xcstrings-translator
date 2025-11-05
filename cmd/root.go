@@ -7,6 +7,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var (
+	Version = "0.0.1"
+	Build   = "2025-11-05"
+	Commit  = "0.0.1"
+)
+
 var rootCmd = &cobra.Command{
 	Use:   "xcstrings-translator",
 	Short: "A CLI tool to translate Localizable.xcstrings files using multiple translation providers",
@@ -15,6 +21,11 @@ using various translation providers including Google Translate, DeepL, Baidu Tra
 
 It supports concurrent translation requests for improved performance and allows configuration
 of provider-specific parameters through command-line flags.`,
+	Version: getVersion(),
+}
+
+func getVersion() string {
+	return fmt.Sprintf("%s (%s) %s", Version, Build, Commit)
 }
 
 func Execute() {
