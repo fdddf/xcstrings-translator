@@ -101,20 +101,6 @@ func runBaiduTranslate(cmd *cobra.Command, args []string) error {
 		xcstrings.SourceLanguage = sourceLang
 	}
 
-	// Create translation requests
-	if verbose {
-		fmt.Println("Preparing translation requests...")
-	}
-	requests := translator.CreateTranslationRequests(xcstrings, targetLangs)
-	if verbose {
-		fmt.Printf("Found %d strings to translate\n", len(requests))
-	}
-
-	if len(requests) == 0 {
-		fmt.Println("No strings to translate. Exiting.")
-		return nil
-	}
-
 	// Create translator
 	provider := translator.NewBaiduTranslator(appID, appSecret)
 
@@ -130,9 +116,29 @@ func runBaiduTranslate(cmd *cobra.Command, args []string) error {
 		fmt.Println("Starting translation...")
 	}
 	ctx := context.Background()
-	responses, err := service.TranslateBatch(ctx, requests)
-	if err != nil {
-		fmt.Printf("Translation failed: %v\n", err)
+	var responses []model.TranslationResponse
+	var translateErr error
+	for _, target := range targetLangs {
+		reqs := translator.CreateTranslationRequestsForLanguage(xcstrings, target)
+		if len(reqs) == 0 {
+			continue
+		}
+
+		if verbose {
+			fmt.Printf("Translating to %s (%d strings)...\n", target, len(reqs))
+		}
+
+		progress := translator.NewVerboseProgressReporter(target, len(reqs), verbose)
+		batchResponses, err := service.TranslateBatch(ctx, reqs, progress)
+		responses = append(responses, batchResponses...)
+		if err != nil && translateErr == nil {
+			translateErr = err
+		}
+	}
+
+	if len(responses) == 0 {
+		fmt.Println("No strings to translate. Exiting.")
+		return nil
 	}
 
 	// Process results
@@ -151,6 +157,10 @@ func runBaiduTranslate(cmd *cobra.Command, args []string) error {
 
 	if verbose {
 		fmt.Printf("Translation completed: %d successful, %d failed\n", successCount, errorCount)
+	}
+
+	if translateErr != nil {
+		fmt.Printf("Translation finished with errors: %v\n", translateErr)
 	}
 
 	// Apply translations
