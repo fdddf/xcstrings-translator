@@ -8,6 +8,7 @@ import (
 	"github.com/fdddf/xcstrings-translator/internal/model"
 	"github.com/fdddf/xcstrings-translator/internal/translator"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 var baiduCmd = &cobra.Command{
@@ -15,7 +16,8 @@ var baiduCmd = &cobra.Command{
 	Short: "Translate xcstrings using Baidu Translate API",
 	Long: `Translate Localizable.xcstrings file using Baidu Translate API.
 	
-Requires a valid Baidu Translate API AppID and AppSecret.`,
+Requires a valid Baidu Translate API AppID and AppSecret. Configuration can be provided
+via command line flags, config file, or environment variables.`,
 	RunE: runBaiduTranslate,
 }
 
@@ -25,20 +27,54 @@ func init() {
 	// Baidu specific flags
 	baiduCmd.Flags().String("app-id", "", "Baidu Translate AppID (required)")
 	baiduCmd.Flags().String("app-secret", "", "Baidu Translate AppSecret (required)")
-	baiduCmd.MarkFlagRequired("app-id")
-	baiduCmd.MarkFlagRequired("app-secret")
+
+	// Bind flags to Viper
+	viper.BindPFlag("baidu.app_id", baiduCmd.Flags().Lookup("app-id"))
+	viper.BindPFlag("baidu.app_secret", baiduCmd.Flags().Lookup("app-secret"))
 }
 
 func runBaiduTranslate(cmd *cobra.Command, args []string) error {
-	// Get flags
-	inputFile, _ := cmd.Flags().GetString("input")
-	outputFile, _ := cmd.Flags().GetString("output")
-	sourceLang, _ := cmd.Flags().GetString("source-language")
-	targetLangs, _ := cmd.Flags().GetStringSlice("target-languages")
-	concurrency, _ := cmd.Flags().GetInt("concurrency")
-	verbose, _ := cmd.Flags().GetBool("verbose")
-	appID, _ := cmd.Flags().GetString("app-id")
-	appSecret, _ := cmd.Flags().GetString("app-secret")
+	// Get configuration values with fallbacks
+	inputFile := viper.GetString("global.input_file")
+	if cmd.Flags().Changed("input") {
+		inputFile, _ = cmd.Flags().GetString("input")
+	}
+
+	outputFile := viper.GetString("global.output_file")
+	if cmd.Flags().Changed("output") {
+		outputFile, _ = cmd.Flags().GetString("output")
+	}
+
+	sourceLang := viper.GetString("global.source_language")
+	if cmd.Flags().Changed("source-language") {
+		sourceLang, _ = cmd.Flags().GetString("source-language")
+	}
+
+	targetLangs := viper.GetStringSlice("global.target_languages")
+	if cmd.Flags().Changed("target-languages") {
+		targetLangs, _ = cmd.Flags().GetStringSlice("target-languages")
+	}
+
+	concurrency := viper.GetInt("global.concurrency")
+	if cmd.Flags().Changed("concurrency") {
+		concurrency, _ = cmd.Flags().GetInt("concurrency")
+	}
+
+	verbose := viper.GetBool("global.verbose")
+	if cmd.Flags().Changed("verbose") {
+		verbose, _ = cmd.Flags().GetBool("verbose")
+	}
+
+	// Get Baidu specific config
+	appID := viper.GetString("baidu.app_id")
+	if cmd.Flags().Changed("app-id") {
+		appID, _ = cmd.Flags().GetString("app-id")
+	}
+
+	appSecret := viper.GetString("baidu.app_secret")
+	if cmd.Flags().Changed("app-secret") {
+		appSecret, _ = cmd.Flags().GetString("app-secret")
+	}
 
 	if verbose {
 		fmt.Printf("Starting Baidu Translate with:\n")

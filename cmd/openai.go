@@ -9,6 +9,7 @@ import (
 	"github.com/fdddf/xcstrings-translator/internal/translator"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 var openaiCmd = &cobra.Command{
@@ -16,7 +17,8 @@ var openaiCmd = &cobra.Command{
 	Short: "Translate xcstrings using OpenAI compatible API",
 	Long: `Translate Localizable.xcstrings file using OpenAI Chat API or compatible APIs.
 	
-Supports OpenAI API and any API that is compatible with the OpenAI Chat API format.`,
+Supports OpenAI API and any API that is compatible with the OpenAI Chat API format. Configuration can be provided
+via command line flags, config file, or environment variables.`,
 	Run: runOpenAITranslate,
 }
 
@@ -25,26 +27,76 @@ func init() {
 
 	// OpenAI specific flags
 	openaiCmd.Flags().String("api-key", "", "OpenAI API key (required)")
-	openaiCmd.Flags().String("api-base-url", "https://api.openai.com", "API base URL")
-	openaiCmd.Flags().String("model", "gpt-3.5-turbo", "Model to use for translation")
-	openaiCmd.Flags().Float64("temperature", 0.3, "Temperature for translation")
-	openaiCmd.Flags().Int("max-tokens", 1024, "Maximum tokens for translation")
-	openaiCmd.MarkFlagRequired("api-key")
+	openaiCmd.Flags().String("api-base-url", "", "API base URL")
+	openaiCmd.Flags().String("model", "", "Model to use for translation")
+	openaiCmd.Flags().Float64("temperature", 0, "Temperature for translation")
+	openaiCmd.Flags().Int("max-tokens", 0, "Maximum tokens for translation")
+
+	// Bind flags to Viper
+	viper.BindPFlag("openai.api_key", openaiCmd.Flags().Lookup("api-key"))
+	viper.BindPFlag("openai.api_base_url", openaiCmd.Flags().Lookup("api-base-url"))
+	viper.BindPFlag("openai.model", openaiCmd.Flags().Lookup("model"))
+	viper.BindPFlag("openai.temperature", openaiCmd.Flags().Lookup("temperature"))
+	viper.BindPFlag("openai.max_tokens", openaiCmd.Flags().Lookup("max-tokens"))
 }
 
 func runOpenAITranslate(cmd *cobra.Command, args []string) {
-	// Get flags
-	inputFile, _ := cmd.Flags().GetString("input")
-	outputFile, _ := cmd.Flags().GetString("output")
-	sourceLang, _ := cmd.Flags().GetString("source-language")
-	targetLangs, _ := cmd.Flags().GetStringSlice("target-languages")
-	concurrency, _ := cmd.Flags().GetInt("concurrency")
-	verbose, _ := cmd.Flags().GetBool("verbose")
-	apiKey, _ := cmd.Flags().GetString("api-key")
-	apiBaseURL, _ := cmd.Flags().GetString("api-base-url")
-	model, _ := cmd.Flags().GetString("model")
-	temperature, _ := cmd.Flags().GetFloat64("temperature")
-	maxTokens, _ := cmd.Flags().GetInt("max-tokens")
+	// Get configuration values with fallbacks
+	inputFile := viper.GetString("global.input_file")
+	if cmd.Flags().Changed("input") {
+		inputFile, _ = cmd.Flags().GetString("input")
+	}
+
+	outputFile := viper.GetString("global.output_file")
+	if cmd.Flags().Changed("output") {
+		outputFile, _ = cmd.Flags().GetString("output")
+	}
+
+	sourceLang := viper.GetString("global.source_language")
+	if cmd.Flags().Changed("source-language") {
+		sourceLang, _ = cmd.Flags().GetString("source-language")
+	}
+
+	targetLangs := viper.GetStringSlice("global.target_languages")
+	if cmd.Flags().Changed("target-languages") {
+		targetLangs, _ = cmd.Flags().GetStringSlice("target-languages")
+	}
+
+	concurrency := viper.GetInt("global.concurrency")
+	if cmd.Flags().Changed("concurrency") {
+		concurrency, _ = cmd.Flags().GetInt("concurrency")
+	}
+
+	verbose := viper.GetBool("global.verbose")
+	if cmd.Flags().Changed("verbose") {
+		verbose, _ = cmd.Flags().GetBool("verbose")
+	}
+
+	// Get OpenAI specific config
+	apiKey := viper.GetString("openai.api_key")
+	if cmd.Flags().Changed("api-key") {
+		apiKey, _ = cmd.Flags().GetString("api-key")
+	}
+
+	apiBaseURL := viper.GetString("openai.api_base_url")
+	if cmd.Flags().Changed("api-base-url") {
+		apiBaseURL, _ = cmd.Flags().GetString("api-base-url")
+	}
+
+	model := viper.GetString("openai.model")
+	if cmd.Flags().Changed("model") {
+		model, _ = cmd.Flags().GetString("model")
+	}
+
+	temperature := viper.GetFloat64("openai.temperature")
+	if cmd.Flags().Changed("temperature") {
+		temperature, _ = cmd.Flags().GetFloat64("temperature")
+	}
+
+	maxTokens := viper.GetInt("openai.max_tokens")
+	if cmd.Flags().Changed("max-tokens") {
+		maxTokens, _ = cmd.Flags().GetInt("max-tokens")
+	}
 
 	if verbose {
 		fmt.Printf("Starting OpenAI Translate with:\n")

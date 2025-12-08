@@ -30,6 +30,12 @@ xcstrings-translator is a powerful command-line tool specifically designed for t
 - Preserve original translations, translating only missing language versions
 - Maintain file structure and metadata integrity
 
+### ⚙️ Flexible Configuration
+
+- Support for YAML configuration files
+- Environment variable support
+- Command-line flag overrides
+
 ## 🛠️ Technical Implementation
 
 ### 🏗️ Architecture design
@@ -72,6 +78,18 @@ go install github.com/fdddf/xcstrings-translator@latest
 Or download the binary from the [releases page](https://github.com/fdddf/xcstrings-translator/releases).
 
 ## 📋 Usage Examples
+
+### Using Configuration File
+```bash
+# Use default config.yaml
+xcstrings-translator google
+
+# Use specific config file
+xcstrings-translator --config myconfig.yaml google
+
+# Override specific settings from command line
+xcstrings-translator --input custom.xcstrings -t "es" -t "fr" google
+```
 
 ### Google Translate
 ```bash

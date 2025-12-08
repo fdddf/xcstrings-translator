@@ -9,6 +9,7 @@ import (
 	"github.com/fdddf/xcstrings-translator/internal/translator"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 var googleCmd = &cobra.Command{
@@ -16,7 +17,8 @@ var googleCmd = &cobra.Command{
 	Short: "Translate xcstrings using Google Translate API",
 	Long: `Translate Localizable.xcstrings file using Google Translate API.
 	
-Requires a valid Google Cloud API key with Translate API enabled.`,
+Requires a valid Google Cloud API key with Translate API enabled. Configuration can be provided
+via command line flags, config file, or environment variables.`,
 	Run: runGoogleTranslate,
 }
 
@@ -25,22 +27,62 @@ func init() {
 
 	// Google specific flags
 	googleCmd.Flags().String("api-key", "", "Google Cloud API key (required)")
-	googleCmd.Flags().String("model", "nmt", "Translation model (nmt or base)")
+	googleCmd.Flags().String("model", "", "Translation model (nmt or base)")
 	googleCmd.Flags().String("glossary", "", "Glossary to use for translation")
-	googleCmd.MarkFlagRequired("api-key")
+
+	// Bind flags to Viper
+	viper.BindPFlag("google.api_key", googleCmd.Flags().Lookup("api-key"))
+	viper.BindPFlag("google.model", googleCmd.Flags().Lookup("model"))
+	viper.BindPFlag("google.glossary", googleCmd.Flags().Lookup("glossary"))
 }
 
 func runGoogleTranslate(cmd *cobra.Command, args []string) {
-	// Get flags
-	inputFile, _ := cmd.Flags().GetString("input")
-	outputFile, _ := cmd.Flags().GetString("output")
-	sourceLang, _ := cmd.Flags().GetString("source-language")
-	targetLangs, _ := cmd.Flags().GetStringSlice("target-languages")
-	concurrency, _ := cmd.Flags().GetInt("concurrency")
-	verbose, _ := cmd.Flags().GetBool("verbose")
-	apiKey, _ := cmd.Flags().GetString("api-key")
-	model, _ := cmd.Flags().GetString("model")
-	// glossary, _ := cmd.Flags().GetString("glossary")
+	// Get configuration values with fallbacks
+	inputFile := viper.GetString("global.input_file")
+	if cmd.Flags().Changed("input") {
+		inputFile, _ = cmd.Flags().GetString("input")
+	}
+
+	outputFile := viper.GetString("global.output_file")
+	if cmd.Flags().Changed("output") {
+		outputFile, _ = cmd.Flags().GetString("output")
+	}
+
+	sourceLang := viper.GetString("global.source_language")
+	if cmd.Flags().Changed("source-language") {
+		sourceLang, _ = cmd.Flags().GetString("source-language")
+	}
+
+	targetLangs := viper.GetStringSlice("global.target_languages")
+	if cmd.Flags().Changed("target-languages") {
+		targetLangs, _ = cmd.Flags().GetStringSlice("target-languages")
+	}
+
+	concurrency := viper.GetInt("global.concurrency")
+	if cmd.Flags().Changed("concurrency") {
+		concurrency, _ = cmd.Flags().GetInt("concurrency")
+	}
+
+	verbose := viper.GetBool("global.verbose")
+	if cmd.Flags().Changed("verbose") {
+		verbose, _ = cmd.Flags().GetBool("verbose")
+	}
+
+	// Get Google specific config
+	apiKey := viper.GetString("google.api_key")
+	if cmd.Flags().Changed("api-key") {
+		apiKey, _ = cmd.Flags().GetString("api-key")
+	}
+
+	model := viper.GetString("google.model")
+	if cmd.Flags().Changed("model") {
+		model, _ = cmd.Flags().GetString("model")
+	}
+
+	glossary := viper.GetString("google.glossary")
+	if cmd.Flags().Changed("glossary") {
+		glossary, _ = cmd.Flags().GetString("glossary")
+	}
 
 	if verbose {
 		fmt.Printf("Starting Google Translate with:\n")
@@ -50,6 +92,7 @@ func runGoogleTranslate(cmd *cobra.Command, args []string) {
 		fmt.Printf("  Target languages: %v\n", targetLangs)
 		fmt.Printf("  Concurrency: %d\n", concurrency)
 		fmt.Printf("  Model: %s\n", model)
+		fmt.Printf("  Glossary: %s\n", glossary)
 	}
 
 	// Load xcstrings file

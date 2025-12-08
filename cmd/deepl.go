@@ -9,6 +9,7 @@ import (
 	"github.com/fdddf/xcstrings-translator/internal/translator"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 var deeplCmd = &cobra.Command{
@@ -16,7 +17,8 @@ var deeplCmd = &cobra.Command{
 	Short: "Translate xcstrings using DeepL API",
 	Long: `Translate Localizable.xcstrings file using DeepL API.
 	
-Requires a valid DeepL API key. Use --free for the free API tier.`,
+Requires a valid DeepL API key. Configuration can be provided
+via command line flags, config file, or environment variables.`,
 	Run: runDeepLTranslate,
 }
 
@@ -26,21 +28,61 @@ func init() {
 	// DeepL specific flags
 	deeplCmd.Flags().String("api-key", "", "DeepL API key (required)")
 	deeplCmd.Flags().Bool("free", false, "Use DeepL free API tier")
-	deeplCmd.Flags().String("formality", "default", "Formality level (default, more, less)")
-	deeplCmd.MarkFlagRequired("api-key")
+	deeplCmd.Flags().String("formality", "", "Formality level (default, more, less)")
+
+	// Bind flags to Viper
+	viper.BindPFlag("deepl.api_key", deeplCmd.Flags().Lookup("api-key"))
+	viper.BindPFlag("deepl.is_free", deeplCmd.Flags().Lookup("free"))
+	viper.BindPFlag("deepl.formality", deeplCmd.Flags().Lookup("formality"))
 }
 
 func runDeepLTranslate(cmd *cobra.Command, args []string) {
-	// Get flags
-	inputFile, _ := cmd.Flags().GetString("input")
-	outputFile, _ := cmd.Flags().GetString("output")
-	sourceLang, _ := cmd.Flags().GetString("source-language")
-	targetLangs, _ := cmd.Flags().GetStringSlice("target-languages")
-	concurrency, _ := cmd.Flags().GetInt("concurrency")
-	verbose, _ := cmd.Flags().GetBool("verbose")
-	apiKey, _ := cmd.Flags().GetString("api-key")
-	isFree, _ := cmd.Flags().GetBool("free")
-	formality, _ := cmd.Flags().GetString("formality")
+	// Get configuration values with fallbacks
+	inputFile := viper.GetString("global.input_file")
+	if cmd.Flags().Changed("input") {
+		inputFile, _ = cmd.Flags().GetString("input")
+	}
+
+	outputFile := viper.GetString("global.output_file")
+	if cmd.Flags().Changed("output") {
+		outputFile, _ = cmd.Flags().GetString("output")
+	}
+
+	sourceLang := viper.GetString("global.source_language")
+	if cmd.Flags().Changed("source-language") {
+		sourceLang, _ = cmd.Flags().GetString("source-language")
+	}
+
+	targetLangs := viper.GetStringSlice("global.target_languages")
+	if cmd.Flags().Changed("target-languages") {
+		targetLangs, _ = cmd.Flags().GetStringSlice("target-languages")
+	}
+
+	concurrency := viper.GetInt("global.concurrency")
+	if cmd.Flags().Changed("concurrency") {
+		concurrency, _ = cmd.Flags().GetInt("concurrency")
+	}
+
+	verbose := viper.GetBool("global.verbose")
+	if cmd.Flags().Changed("verbose") {
+		verbose, _ = cmd.Flags().GetBool("verbose")
+	}
+
+	// Get DeepL specific config
+	apiKey := viper.GetString("deepl.api_key")
+	if cmd.Flags().Changed("api-key") {
+		apiKey, _ = cmd.Flags().GetString("api-key")
+	}
+
+	isFree := viper.GetBool("deepl.is_free")
+	if cmd.Flags().Changed("free") {
+		isFree, _ = cmd.Flags().GetBool("free")
+	}
+
+	formality := viper.GetString("deepl.formality")
+	if cmd.Flags().Changed("formality") {
+		formality, _ = cmd.Flags().GetString("formality")
+	}
 
 	if verbose {
 		fmt.Printf("Starting DeepL Translate with:\n")

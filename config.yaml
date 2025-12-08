@@ -1,0 +1,36 @@
+# Global configuration settings
+global:
+  input_file: "Localizable.xcstrings"
+  output_file: "Localizable_translated.xcstrings"
+  source_language: "en"
+  target_languages:
+    - "zh-Hans"
+    - "ja"
+    - "ko"
+  concurrency: 5
+  verbose: false
+
+# Google Translate API configuration
+google:
+  api_key: "your-google-api-key-here"
+  model: "nmt"
+  glossary: ""
+
+# DeepL API configuration
+deepl:
+  api_key: "your-deepl-api-key-here"
+  is_free: false
+  formality: "default"
+
+# Baidu Translate API configuration
+baidu:
+  app_id: "your-baidu-app-id-here"
+  app_secret: "your-baidu-app-secret-here"
+
+# OpenAI compatible API configuration
+openai:
+  api_key: "your-openai-api-key-here"
+  api_base_url: "https://api.openai.com"
+  model: "gpt-3.5-turbo"
+  temperature: 0.3
+  max_tokens: 1024
