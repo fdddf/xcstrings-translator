@@ -10,8 +10,8 @@ import (
 )
 
 var (
-	Version = "0.0.1"
-	Build   = "2025-11-05"
+	Version = "0.1.3"
+	Build   = "2025-12-08"
 	Commit  = "0.0.1"
 )
 
