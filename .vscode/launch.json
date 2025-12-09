@@ -19,6 +19,21 @@
                 "-t", "fr",
                 "-t", "de"
             ]
+        },
+        {
+            "name": "Debug OpenAI",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "main.go",
+            "args": [
+                "openai",
+                "-c", "~/.xcstringlocal.yaml",
+                "-i", "${workspaceFolder}/example2.xcstrings",
+                "-s", "en",
+                "-t", "fr",
+            ]
+
         }
     ]
 }

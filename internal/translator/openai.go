@@ -1,11 +1,18 @@
 package translator
 
 import (
+	"bytes"
+	"compress/flate"
+	"compress/gzip"
+	"compress/zlib"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"strings"
 
+	"github.com/andybalholm/brotli"
 	"github.com/fdddf/xcstrings-translator/internal/model"
 
 	"github.com/go-resty/resty/v2"
@@ -41,8 +48,8 @@ type OpenAIChatResponse struct {
 	Model   string `json:"model"`
 	Choices []struct {
 		Message struct {
-			Role    string `json:"role"`
-			Content string `json:"content"`
+			Role    string          `json:"role"`
+			Content json.RawMessage `json:"content"`
 		} `json:"message"`
 		FinishReason string `json:"finish_reason"`
 		Index        int    `json:"index"`
@@ -60,6 +67,175 @@ type OpenAIChatResponse struct {
 	} `json:"error,omitempty"`
 }
 
+func extractMessageText(raw json.RawMessage) (string, error) {
+	if len(raw) == 0 {
+		return "", fmt.Errorf("empty message content")
+	}
+
+	var asString string
+	if err := json.Unmarshal(raw, &asString); err == nil {
+		return asString, nil
+	}
+
+	type contentPart struct {
+		Type    string `json:"type"`
+		Text    string `json:"text"`
+		Content string `json:"content"`
+		Value   string `json:"value"`
+	}
+	var parts []contentPart
+	if err := json.Unmarshal(raw, &parts); err == nil {
+		var builder strings.Builder
+		for _, part := range parts {
+			text := part.Text
+			if text == "" {
+				text = part.Content
+			}
+			if text == "" {
+				text = part.Value
+			}
+			if text == "" {
+				continue
+			}
+			if builder.Len() > 0 {
+				builder.WriteString("\n")
+			}
+			builder.WriteString(text)
+		}
+		if builder.Len() > 0 {
+			return builder.String(), nil
+		}
+	}
+
+	var objectPart contentPart
+	if err := json.Unmarshal(raw, &objectPart); err == nil {
+		if objectPart.Text != "" {
+			return objectPart.Text, nil
+		}
+		if objectPart.Content != "" {
+			return objectPart.Content, nil
+		}
+		if objectPart.Value != "" {
+			return objectPart.Value, nil
+		}
+	}
+
+	// Return JSON string to aid debugging when we cannot understand the format.
+	return "", fmt.Errorf("unsupported message content format: %s", string(raw))
+}
+
+func decodeResponseBody(resp *resty.Response) ([]byte, error) {
+	body := resp.Body()
+	if len(body) == 0 {
+		return nil, fmt.Errorf("empty response body")
+	}
+
+	encodings := parseContentEncodings(resp.Header().Get("Content-Encoding"))
+	data := body
+	if len(encodings) > 0 {
+		for i := len(encodings) - 1; i >= 0; i-- {
+			encoding := encodings[i]
+			var err error
+			switch encoding {
+			case "gzip", "x-gzip":
+				data, err = ungzip(data)
+			case "deflate":
+				data, err = undeflate(data)
+			case "br", "brotli", "x-brotli":
+				data, err = unbrotli(data)
+			case "identity":
+				continue
+			default:
+				return nil, fmt.Errorf("unsupported content encoding: %s", encoding)
+			}
+			if err != nil {
+				return nil, fmt.Errorf("failed to decode %s content: %v", encoding, err)
+			}
+		}
+		return data, nil
+	}
+
+	if bytes.HasPrefix(data, []byte{0x1f, 0x8b}) {
+		return ungzip(data)
+	}
+	if looksLikeZlib(data) {
+		if decoded, err := undeflate(data); err == nil {
+			return decoded, nil
+		}
+	}
+
+	return data, nil
+}
+
+func ungzip(data []byte) ([]byte, error) {
+	reader, err := gzip.NewReader(bytes.NewReader(data))
+	if err != nil {
+		return nil, err
+	}
+	defer reader.Close()
+
+	var buf bytes.Buffer
+	if _, err := io.Copy(&buf, reader); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func undeflate(data []byte) ([]byte, error) {
+	reader, err := zlib.NewReader(bytes.NewReader(data))
+	if err == nil {
+		defer reader.Close()
+		var buf bytes.Buffer
+		if _, err := io.Copy(&buf, reader); err != nil {
+			return nil, err
+		}
+		return buf.Bytes(), nil
+	}
+
+	flateReader := flate.NewReader(bytes.NewReader(data))
+	defer flateReader.Close()
+
+	var buf bytes.Buffer
+	if _, err := io.Copy(&buf, flateReader); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func unbrotli(data []byte) ([]byte, error) {
+	reader := brotli.NewReader(bytes.NewReader(data))
+	var buf bytes.Buffer
+	if _, err := io.Copy(&buf, reader); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func parseContentEncodings(header string) []string {
+	if header == "" {
+		return nil
+	}
+	parts := strings.Split(header, ",")
+	var encodings []string
+	for _, part := range parts {
+		enc := strings.ToLower(strings.TrimSpace(part))
+		if enc == "" || enc == "identity" {
+			continue
+		}
+		encodings = append(encodings, enc)
+	}
+	return encodings
+}
+
+func looksLikeZlib(data []byte) bool {
+	if len(data) < 2 {
+		return false
+	}
+	cmf := data[0]
+	flg := data[1]
+	return (uint16(cmf)<<8|uint16(flg))%31 == 0 && cmf&0x0F == 8
+}
+
 // NewOpenAITranslator creates a new OpenAI Translator instance
 func NewOpenAITranslator(apiKey, apiBaseURL, model string) *OpenAITranslator {
 	if apiBaseURL == "" {
@@ -71,7 +247,7 @@ func NewOpenAITranslator(apiKey, apiBaseURL, model string) *OpenAITranslator {
 
 	client := resty.New()
 	client.SetHeader("Content-Type", "application/json")
-	client.SetAuthToken(fmt.Sprintf("Bearer %s", apiKey))
+	client.SetAuthToken(apiKey)
 
 	return &OpenAITranslator{
 		APIKey:     apiKey,
@@ -129,8 +305,18 @@ func (o *OpenAITranslator) Translate(ctx context.Context, req model.TranslationR
 		}, nil
 	}
 
+	body, err := decodeResponseBody(resp)
+	if err != nil {
+		return model.TranslationResponse{
+			Key:            req.Key,
+			TargetLanguage: req.TargetLanguage,
+			Error:          fmt.Errorf("failed to read response: %v", err),
+		}, nil
+	}
+
 	var translationResponse OpenAIChatResponse
-	err = json.Unmarshal(resp.Body(), &translationResponse)
+	fmt.Printf("OpenAI Translation Response status: %d\n", resp.StatusCode())
+	err = json.Unmarshal(body, &translationResponse)
 	if err != nil {
 		return model.TranslationResponse{
 			Key:            req.Key,
@@ -147,7 +333,23 @@ func (o *OpenAITranslator) Translate(ctx context.Context, req model.TranslationR
 		}, nil
 	}
 
-	if len(translationResponse.Choices) == 0 || translationResponse.Choices[0].Message.Content == "" {
+	if len(translationResponse.Choices) == 0 {
+		return model.TranslationResponse{
+			Key:            req.Key,
+			TargetLanguage: req.TargetLanguage,
+			Error:          fmt.Errorf("no translation results"),
+		}, nil
+	}
+
+	content, err := extractMessageText(translationResponse.Choices[0].Message.Content)
+	if err != nil {
+		return model.TranslationResponse{
+			Key:            req.Key,
+			TargetLanguage: req.TargetLanguage,
+			Error:          fmt.Errorf("failed to parse message content: %v", err),
+		}, nil
+	}
+	if content == "" {
 		return model.TranslationResponse{
 			Key:            req.Key,
 			TargetLanguage: req.TargetLanguage,
@@ -158,6 +360,6 @@ func (o *OpenAITranslator) Translate(ctx context.Context, req model.TranslationR
 	return model.TranslationResponse{
 		Key:            req.Key,
 		TargetLanguage: req.TargetLanguage,
-		TranslatedText: translationResponse.Choices[0].Message.Content,
+		TranslatedText: content,
 	}, nil
 }

@@ -3,6 +3,7 @@ module github.com/fdddf/xcstrings-translator
 go 1.24.0
 
 require (
+	github.com/andybalholm/brotli v1.1.0
 	github.com/go-resty/resty/v2 v2.16.5
 	github.com/spf13/cobra v1.10.1
 )
