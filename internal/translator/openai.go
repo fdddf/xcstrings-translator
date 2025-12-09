@@ -1,6 +1,7 @@
 package translator
 
 import (
+	"bufio"
 	"bytes"
 	"compress/flate"
 	"compress/gzip"
@@ -20,10 +21,12 @@ import (
 
 // OpenAITranslator implements the TranslationProvider interface for OpenAI compatible APIs
 type OpenAITranslator struct {
-	APIKey     string
-	APIBaseURL string
-	Model      string
-	Client     *resty.Client
+	APIKey      string
+	APIBaseURL  string
+	Model       string
+	Client      *resty.Client
+	Temperature float64
+	MaxTokens   int
 }
 
 // OpenAIChatRequest represents the request body for OpenAI Chat API
@@ -33,11 +36,19 @@ type OpenAIChatRequest struct {
 		Role    string `json:"role"`
 		Content string `json:"content"`
 	} `json:"messages"`
-	Temperature      float64 `json:"temperature,omitempty"`
-	MaxTokens        int     `json:"max_tokens,omitempty"`
-	TopP             float64 `json:"top_p,omitempty"`
-	FrequencyPenalty float64 `json:"frequency_penalty,omitempty"`
-	PresencePenalty  float64 `json:"presence_penalty,omitempty"`
+	Temperature      float64              `json:"temperature,omitempty"`
+	MaxTokens        int                  `json:"max_tokens,omitempty"`
+	TopP             float64              `json:"top_p,omitempty"`
+	FrequencyPenalty float64              `json:"frequency_penalty,omitempty"`
+	PresencePenalty  float64              `json:"presence_penalty,omitempty"`
+	Stream           bool                 `json:"stream"`
+	StreamOptions    *OpenAIStreamOptions `json:"stream_options,omitempty"`
+}
+
+// OpenAIStreamOptions represents stream_options to satisfy APIs that require it
+// alongside the stream flag, even when streaming is disabled.
+type OpenAIStreamOptions struct {
+	IncludeUsage bool `json:"include_usage"`
 }
 
 // OpenAIChatResponse represents the response from OpenAI Chat API
@@ -237,7 +248,7 @@ func looksLikeZlib(data []byte) bool {
 }
 
 // NewOpenAITranslator creates a new OpenAI Translator instance
-func NewOpenAITranslator(apiKey, apiBaseURL, model string) *OpenAITranslator {
+func NewOpenAITranslator(apiKey, apiBaseURL, model string, temperature float64, maxTokens int) *OpenAITranslator {
 	if apiBaseURL == "" {
 		apiBaseURL = "https://api.openai.com"
 	}
@@ -250,20 +261,30 @@ func NewOpenAITranslator(apiKey, apiBaseURL, model string) *OpenAITranslator {
 	client.SetAuthToken(apiKey)
 
 	return &OpenAITranslator{
-		APIKey:     apiKey,
-		APIBaseURL: apiBaseURL,
-		Model:      model,
-		Client:     client,
+		APIKey:      apiKey,
+		APIBaseURL:  apiBaseURL,
+		Model:       model,
+		Client:      client,
+		Temperature: temperature,
+		MaxTokens:   maxTokens,
 	}
 }
 
-// Translate translates a string using OpenAI Chat API
-func (o *OpenAITranslator) Translate(ctx context.Context, req model.TranslationRequest) (model.TranslationResponse, error) {
+func (o *OpenAITranslator) translateOnce(ctx context.Context, req model.TranslationRequest, stream bool) (string, error) {
 	apiURL := fmt.Sprintf("%s/v1/chat/completions", o.APIBaseURL)
 
 	// Create translation prompt
 	prompt := fmt.Sprintf("Translate the following text from %s to %s:\n\n%s",
 		req.SourceLanguage, req.TargetLanguage, req.Text)
+
+	temperature := o.Temperature
+	if temperature == 0 {
+		temperature = 0.3
+	}
+	maxTokens := o.MaxTokens
+	if maxTokens <= 0 {
+		maxTokens = 1024
+	}
 
 	requestBody := OpenAIChatRequest{
 		Model: o.Model,
@@ -280,9 +301,13 @@ func (o *OpenAITranslator) Translate(ctx context.Context, req model.TranslationR
 				Content: prompt,
 			},
 		},
-		Temperature: 0.3,
-		MaxTokens:   1024,
+		Temperature: temperature,
+		MaxTokens:   maxTokens,
+		Stream:      stream,
 	}
+
+	// Some providers require stream_options to be present whenever stream is set (even false).
+	requestBody.StreamOptions = &OpenAIStreamOptions{IncludeUsage: false}
 
 	resp, err := o.Client.R().
 		SetContext(ctx).
@@ -290,76 +315,129 @@ func (o *OpenAITranslator) Translate(ctx context.Context, req model.TranslationR
 		Post(apiURL)
 
 	if err != nil {
-		return model.TranslationResponse{
-			Key:            req.Key,
-			TargetLanguage: req.TargetLanguage,
-			Error:          fmt.Errorf("request failed: %v", err),
-		}, nil
+		return "", fmt.Errorf("request failed: %v", err)
 	}
 
 	if resp.StatusCode() != http.StatusOK {
-		return model.TranslationResponse{
-			Key:            req.Key,
-			TargetLanguage: req.TargetLanguage,
-			Error:          fmt.Errorf("API request failed with status code: %d, response: %s", resp.StatusCode(), resp.String()),
-		}, nil
+		return "", fmt.Errorf("API request failed with status code: %d, response: %s", resp.StatusCode(), resp.String())
 	}
 
 	body, err := decodeResponseBody(resp)
 	if err != nil {
-		return model.TranslationResponse{
-			Key:            req.Key,
-			TargetLanguage: req.TargetLanguage,
-			Error:          fmt.Errorf("failed to read response: %v", err),
-		}, nil
+		return "", fmt.Errorf("failed to read response: %v", err)
+	}
+
+	// If we requested streaming, try to parse SSE chunks first.
+	if stream {
+		if isStreamContent(resp.Header().Get("Content-Type"), body) {
+			content, streamErr := parseStreamedContent(body)
+			if streamErr == nil {
+				return content, nil
+			}
+			// If the payload clearly looks like stream data, return the parsing error directly.
+			if bytes.HasPrefix(bytes.TrimSpace(body), []byte("data:")) {
+				return "", streamErr
+			}
+			// otherwise fall through to JSON parsing for robustness
+		}
 	}
 
 	var translationResponse OpenAIChatResponse
 	fmt.Printf("OpenAI Translation Response status: %d\n", resp.StatusCode())
 	err = json.Unmarshal(body, &translationResponse)
 	if err != nil {
-		return model.TranslationResponse{
-			Key:            req.Key,
-			TargetLanguage: req.TargetLanguage,
-			Error:          fmt.Errorf("failed to parse response: %v", err),
-		}, nil
+		return "", fmt.Errorf("failed to parse response: %v", err)
 	}
 
 	if translationResponse.Error != nil {
-		return model.TranslationResponse{
-			Key:            req.Key,
-			TargetLanguage: req.TargetLanguage,
-			Error:          fmt.Errorf("API error: %s", translationResponse.Error.Message),
-		}, nil
+		return "", fmt.Errorf("API error: %s", translationResponse.Error.Message)
 	}
 
 	if len(translationResponse.Choices) == 0 {
-		return model.TranslationResponse{
-			Key:            req.Key,
-			TargetLanguage: req.TargetLanguage,
-			Error:          fmt.Errorf("no translation results"),
-		}, nil
+		return "", fmt.Errorf("no translation results")
 	}
 
 	content, err := extractMessageText(translationResponse.Choices[0].Message.Content)
 	if err != nil {
-		return model.TranslationResponse{
-			Key:            req.Key,
-			TargetLanguage: req.TargetLanguage,
-			Error:          fmt.Errorf("failed to parse message content: %v", err),
-		}, nil
+		return "", fmt.Errorf("failed to parse message content: %v", err)
 	}
 	if content == "" {
+		return "", fmt.Errorf("no translation results")
+	}
+
+	return content, nil
+}
+
+func isStreamContent(contentType string, body []byte) bool {
+	if strings.Contains(strings.ToLower(contentType), "event-stream") {
+		return true
+	}
+	trimmed := bytes.TrimSpace(body)
+	return bytes.HasPrefix(trimmed, []byte("data:"))
+}
+
+func parseStreamedContent(body []byte) (string, error) {
+	scanner := bufio.NewScanner(bytes.NewReader(body))
+	var builder strings.Builder
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		if !strings.HasPrefix(line, "data:") {
+			continue
+		}
+
+		payload := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
+		if payload == "" || payload == "[DONE]" {
+			continue
+		}
+
+		var chunk struct {
+			Choices []struct {
+				Delta struct {
+					Content string `json:"content"`
+				} `json:"delta"`
+			} `json:"choices"`
+		}
+		if err := json.Unmarshal([]byte(payload), &chunk); err != nil {
+			return "", fmt.Errorf("failed to parse streamed chunk: %v", err)
+		}
+		if len(chunk.Choices) > 0 {
+			builder.WriteString(chunk.Choices[0].Delta.Content)
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return "", fmt.Errorf("failed to read streamed response: %v", err)
+	}
+
+	if builder.Len() == 0 {
+		return "", fmt.Errorf("no streamed content")
+	}
+
+	return builder.String(), nil
+}
+
+// Translate translates a string using OpenAI Chat API
+func (o *OpenAITranslator) Translate(ctx context.Context, req model.TranslationRequest) (model.TranslationResponse, error) {
+	translatedText, err := o.translateOnce(ctx, req, false)
+	if err != nil && strings.Contains(err.Error(), "'stream' and 'stream_options' must be set together") {
+		translatedText, err = o.translateOnce(ctx, req, true)
+		if err != nil {
+			err = fmt.Errorf("streaming retry failed: %w", err)
+		}
+	}
+
+	if err != nil {
 		return model.TranslationResponse{
 			Key:            req.Key,
 			TargetLanguage: req.TargetLanguage,
-			Error:          fmt.Errorf("no translation results"),
+			Error:          err,
 		}, nil
 	}
 
 	return model.TranslationResponse{
 		Key:            req.Key,
 		TargetLanguage: req.TargetLanguage,
-		TranslatedText: content,
+		TranslatedText: translatedText,
 	}, nil
 }

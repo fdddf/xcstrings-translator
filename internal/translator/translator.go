@@ -76,12 +76,21 @@ func (s *TranslationService) TranslateBatch(ctx context.Context, requests []mode
 	// Process responses
 	var responses []model.TranslationResponse
 	completed := 0
+	var firstErr error
 	for resp := range respChan {
 		responses = append(responses, resp)
+		if resp.Error != nil && firstErr == nil {
+			firstErr = fmt.Errorf("translation failed for key %s to %s: %w", resp.Key, resp.TargetLanguage, resp.Error)
+			cancel()
+		}
 		completed++
 		if progress != nil {
 			progress(completed, len(requests), resp)
 		}
+	}
+
+	if firstErr != nil {
+		return responses, firstErr
 	}
 
 	if ctx.Err() != nil {
@@ -201,8 +210,9 @@ func TranslatePerLanguage(
 
 		responses, err := service.TranslateBatch(ctx, requests, progress)
 		allResponses = append(allResponses, responses...)
-		if err != nil && translateErr == nil {
+		if err != nil {
 			translateErr = fmt.Errorf("translation to %s failed: %w", target, err)
+			break
 		}
 	}
 

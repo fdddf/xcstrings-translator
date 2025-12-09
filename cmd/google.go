@@ -126,7 +126,6 @@ func runGoogleTranslate(cmd *cobra.Command, args []string) {
 	}
 	ctx := context.Background()
 	var responses []tm.TranslationResponse
-	var translateErr error
 	for _, target := range targetLangs {
 		reqs := translator.CreateTranslationRequestsForLanguage(xcstrings, target)
 		if len(reqs) == 0 {
@@ -140,8 +139,9 @@ func runGoogleTranslate(cmd *cobra.Command, args []string) {
 		progress := translator.NewVerboseProgressReporter(target, len(reqs), verbose)
 		batchResponses, err := service.TranslateBatch(ctx, reqs, progress)
 		responses = append(responses, batchResponses...)
-		if err != nil && translateErr == nil {
-			translateErr = err
+		if err != nil {
+			fmt.Printf("Translation failed for %s: %v\n", target, err)
+			return
 		}
 	}
 
@@ -168,8 +168,9 @@ func runGoogleTranslate(cmd *cobra.Command, args []string) {
 		fmt.Printf("Translation completed: %d successful, %d failed\n", successCount, errorCount)
 	}
 
-	if translateErr != nil {
-		fmt.Printf("Translation finished with errors: %v\n", translateErr)
+	if errorCount > 0 {
+		fmt.Println("Errors detected during translation. Stopping without applying translations.")
+		return
 	}
 
 	// Apply translations
