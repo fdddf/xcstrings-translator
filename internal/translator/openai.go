@@ -354,15 +354,15 @@ func (o *OpenAITranslator) translateOnce(ctx context.Context, req model.Translat
 	}
 
 	if len(translationResponse.Choices) == 0 {
-		return "", fmt.Errorf("no translation results")
+		return "", fmt.Errorf("no translation results: %s", body)
 	}
 
 	content, err := extractMessageText(translationResponse.Choices[0].Message.Content)
 	if err != nil {
-		return "", fmt.Errorf("failed to parse message content: %v", err)
+		return "", fmt.Errorf("failed to parse message content: %v, resp: %s", err, body)
 	}
 	if content == "" {
-		return "", fmt.Errorf("no translation results")
+		return "", fmt.Errorf("no translation results: %s", body)
 	}
 
 	return content, nil
