@@ -102,6 +102,8 @@ jobs:
             install: |
               sudo apt-get update
               sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev pkg-config
+              # webview pkg-config still looks for webkit2gtk-4.0; provide a compat symlink
+              sudo ln -sf /usr/lib/x86_64-linux-gnu/pkgconfig/webkit2gtk-4.1.pc /usr/lib/x86_64-linux-gnu/pkgconfig/webkit2gtk-4.0.pc
           - os: windows-latest
             goos: windows
             goarch: amd64
