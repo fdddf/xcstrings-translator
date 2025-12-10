@@ -68,11 +68,20 @@ func LoadXCStrings(filePath string) (*XCStrings, error) {
 	return &xcstrings, nil
 }
 
+// ParseXCStrings parses xcstrings content from bytes.
+func ParseXCStrings(data []byte) (*XCStrings, error) {
+	var xcstrings XCStrings
+	if err := json.Unmarshal(data, &xcstrings); err != nil {
+		return nil, fmt.Errorf("failed to parse JSON: %v", err)
+	}
+	return &xcstrings, nil
+}
+
 // SaveXCStrings saves an xcstrings file to disk
 func SaveXCStrings(filePath string, xcstrings *XCStrings) error {
-	data, err := json.MarshalIndent(xcstrings, "", "  ")
+	data, err := MarshalXCStrings(xcstrings)
 	if err != nil {
-		return fmt.Errorf("failed to marshal JSON: %v", err)
+		return err
 	}
 
 	err = os.WriteFile(filePath, data, 0644)
@@ -81,4 +90,13 @@ func SaveXCStrings(filePath string, xcstrings *XCStrings) error {
 	}
 
 	return nil
+}
+
+// MarshalXCStrings marshals xcstrings to pretty JSON.
+func MarshalXCStrings(xcstrings *XCStrings) ([]byte, error) {
+	data, err := json.MarshalIndent(xcstrings, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal JSON: %v", err)
+	}
+	return data, nil
 }

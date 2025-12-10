@@ -130,6 +130,17 @@ xcstrings-translator openai
 
 ```
 
+### Visual Web UI
+```bash
+# Build the Vue/Tailwind UI (once, or after editing web/)
+cd web && npm install && npm run build
+
+# Start the embedded Fiber server
+xcstrings-translator serve --addr :8080
+```
+
+Upload a `Localizable.xcstrings` file, choose target languages, run batch translation with your provider keys, and export the updated file directly from the browser.
+
 ## 🔒 Security Features
 
 - API keys are passed via command-line arguments or environment variables

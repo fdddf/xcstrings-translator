@@ -1,5 +1,5 @@
 xcstrings-translator
 .DS_Store
 dist/
-assets/
 *.zip
+node_modules/

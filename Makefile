@@ -14,6 +14,9 @@ all: binary
 binary:
 	go build -v -ldflags="$(LDFLAGS)" -o $(BIN) main.go
 
+ui:
+	cd web && npm install && npm run build
+
 clean:
 	rm -f $(BIN)
 
