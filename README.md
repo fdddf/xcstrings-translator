@@ -139,7 +139,7 @@ cd web && npm install && npm run build
 xcstrings-translator serve --addr :8080
 ```
 
-Upload a `Localizable.xcstrings` file, choose target languages, run batch translation with your provider keys, and export the updated file directly from the browser.
+Upload a `Localizable.xcstrings` file, choose target languages, run batch translation with your provider keys, and export the updated file directly from the browser. Progress is streamed; translated keys appear in the grid in real time so you don’t lose work if rate limits interrupt a long run.
 
 ## 🔒 Security Features
 
