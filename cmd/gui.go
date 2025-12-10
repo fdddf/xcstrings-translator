@@ -26,9 +26,18 @@ var guiCmd = &cobra.Command{
 	Use:   "gui",
 	Short: "Open the native desktop UI (Windows/macOS/Linux)",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		width, _ := cmd.Flags().Int("width", 1280)
-		height, _ := cmd.Flags().Int("height", 800)
-		debug, _ := cmd.Flags().Bool("debug", false)
+		width, err := cmd.Flags().GetInt("width")
+		if err != nil {
+			return err
+		}
+		height, err := cmd.Flags().GetInt("height")
+		if err != nil {
+			return err
+		}
+		debug, err := cmd.Flags().GetBool("debug")
+		if err != nil {
+			return err
+		}
 
 		ln, err := net.Listen("tcp", "127.0.0.1:0")
 		if err != nil {
