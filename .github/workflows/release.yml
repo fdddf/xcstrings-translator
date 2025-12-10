@@ -73,10 +73,12 @@ jobs:
 
     - name: Build binary
       shell: bash
+      env:
+        EXTRA_GUI_LDFLAGS: ${{ matrix.GOOS == 'windows' && '-H=windowsgui' || '' }}
       run: |
         mkdir -p dist
         GOOS=${{ matrix.GOOS }} GOARCH=${{ matrix.GOARCH }} go build -ldflags="${LDFLAGS}" -o "dist/xcstrings-translator-${{ matrix.target }}${{ matrix.ext }}" .
-        CGO_ENABLED=1 GOOS=${{ matrix.GOOS }} GOARCH=${{ matrix.GOARCH }} go build -tags gui -ldflags="${LDFLAGS}" -o "dist/xcstrings-translator-${{ matrix.target }}-gui${{ matrix.ext }}" .
+        CGO_ENABLED=1 GOOS=${{ matrix.GOOS }} GOARCH=${{ matrix.GOARCH }} go build -tags gui -ldflags="${LDFLAGS} ${EXTRA_GUI_LDFLAGS}" -o "dist/xcstrings-translator-${{ matrix.target }}-gui${{ matrix.ext }}" .
         chmod +x dist/*
 
     - name: Package as ZIP (non-Windows)

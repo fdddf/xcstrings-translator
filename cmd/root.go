@@ -39,6 +39,12 @@ func Execute() {
 	}
 }
 
+// ExecuteGUI runs the CLI defaulting to the gui subcommand (used by GUI-only builds).
+func ExecuteGUI() {
+	rootCmd.SetArgs([]string{"gui"})
+	Execute()
+}
+
 func init() {
 	// Initialize default configuration
 	cfg = config.DefaultConfig()
