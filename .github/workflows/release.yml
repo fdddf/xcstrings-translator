@@ -79,11 +79,18 @@ jobs:
         CGO_ENABLED=1 GOOS=${{ matrix.GOOS }} GOARCH=${{ matrix.GOARCH }} go build -tags gui -ldflags="${LDFLAGS}" -o "dist/xcstrings-translator-${{ matrix.target }}-gui${{ matrix.ext }}" .
         chmod +x dist/*
 
-    - name: Package as ZIP
+    - name: Package as ZIP (non-Windows)
+      if: matrix.GOOS != 'windows'
       shell: bash
       run: |
         cd dist
         zip "xcstrings-translator-${{ matrix.target }}.zip" "xcstrings-translator-${{ matrix.target }}${{ matrix.ext }}" "xcstrings-translator-${{ matrix.target }}-gui${{ matrix.ext }}"
+
+    - name: Package as ZIP (Windows)
+      if: matrix.GOOS == 'windows'
+      shell: pwsh
+      run: |
+        Compress-Archive -Path "dist/xcstrings-translator-${{ matrix.target }}${{ matrix.ext }}","dist/xcstrings-translator-${{ matrix.target }}-gui${{ matrix.ext }}" -DestinationPath "dist/xcstrings-translator-${{ matrix.target }}.zip"
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
