@@ -122,6 +122,25 @@
                 {{ preset }}
               </button>
             </div>
+
+            <div class="mt-4 space-y-2">
+              <div class="flex items-center justify-between text-xs text-slate-400">
+                <span>Language library</span>
+                <button class="text-mint underline" @click="showAllLanguages = !showAllLanguages">
+                  {{ showAllLanguages ? 'Collapse' : 'Show all' }}
+                </button>
+              </div>
+              <div class="flex flex-wrap gap-2">
+                <button
+                  v-for="lang in languageOptions"
+                  :key="lang.code"
+                  class="rounded-full border border-white/20 px-3 py-1 text-xs text-slate-100 transition hover:border-mint/60 hover:text-mint"
+                  @click="addPreset(lang.code)"
+                >
+                  {{ lang.name }} ({{ lang.code }})
+                </button>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -220,6 +239,9 @@
                 Save options
               </button>
             </div>
+            <p v-if="progress.id" class="text-xs text-slate-300">
+              Progress: {{ progress.done }}/{{ progress.total || '…' }} • {{ progress.status }}
+            </p>
             <p class="text-xs text-slate-400">We only translate missing entries for the selected targets.</p>
           </div>
         </section>
@@ -309,8 +331,36 @@ type Payload = {
 }
 
 type ProviderId = 'openai' | 'google' | 'deepl' | 'baidu'
+type JobState = { id: string; status: string; done: number; total: number; message?: string }
 
 const presets = ['zh-Hans', 'ja', 'ko', 'de', 'fr', 'es', 'ar']
+const languages = [
+  { code: 'zh-Hans', name: 'Chinese (Simplified)' },
+  { code: 'zh-Hant', name: 'Chinese (Traditional)' },
+  { code: 'en', name: 'English' },
+  { code: 'ja', name: 'Japanese' },
+  { code: 'ko', name: 'Korean' },
+  { code: 'de', name: 'German' },
+  { code: 'fr', name: 'French' },
+  { code: 'es', name: 'Spanish' },
+  { code: 'ar', name: 'Arabic' },
+  { code: 'pt', name: 'Portuguese' },
+  { code: 'ru', name: 'Russian' },
+  { code: 'it', name: 'Italian' },
+  { code: 'nl', name: 'Dutch' },
+  { code: 'pl', name: 'Polish' },
+  { code: 'sv', name: 'Swedish' },
+  { code: 'da', name: 'Danish' },
+  { code: 'fi', name: 'Finnish' },
+  { code: 'no', name: 'Norwegian' },
+  { code: 'cs', name: 'Czech' },
+  { code: 'tr', name: 'Turkish' },
+  { code: 'he', name: 'Hebrew' },
+  { code: 'hi', name: 'Hindi' },
+  { code: 'id', name: 'Indonesian' },
+  { code: 'th', name: 'Thai' },
+  { code: 'vi', name: 'Vietnamese' }
+]
 const providers = [
   { id: 'openai' as ProviderId, name: 'OpenAI', hint: 'GPT style chat completion' },
   { id: 'google' as ProviderId, name: 'Google', hint: 'Google Cloud translation' },
@@ -335,11 +385,14 @@ const state = reactive({
 })
 
 const isTranslating = ref(false)
+const progress = reactive<JobState>({ id: '', status: 'idle', done: 0, total: 0 })
+let progressTimer: number | null = null
 const statusMessage = ref('')
 const statusTone = ref<'info' | 'error'>('info')
 const filter = ref('')
 const targetInput = ref('')
 const fileInput = ref<HTMLInputElement | null>(null)
+const showAllLanguages = ref(false)
 
 const LOCAL_KEY = 'xcstrings-translator-ui'
 
@@ -361,6 +414,8 @@ const statusClass = computed(() =>
     ? 'text-red-200 border-red-400/30 bg-red-900/30'
     : 'text-mint border-mint/50 bg-mint/10'
 )
+
+const languageOptions = computed(() => (showAllLanguages.value ? languages : languages.slice(0, 20)))
 
 function showStatus(message: string, tone: 'info' | 'error' = 'info') {
   statusMessage.value = message
@@ -462,9 +517,6 @@ async function batchTranslate() {
     return
   }
 
-  isTranslating.value = true
-  showStatus('Running batch translation…')
-
   const body = {
     provider: state.provider,
     targetLanguages: state.targetLanguages,
@@ -484,26 +536,28 @@ async function batchTranslate() {
     }
   }
 
+  isTranslating.value = true
+  showStatus('Running batch translation…')
+
   const res = await fetch('/api/translate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body)
   })
 
-  isTranslating.value = false
-
   if (!res.ok) {
+    isTranslating.value = false
     showStatus(`Translate failed: ${await res.text()}`, 'error')
     return
   }
 
-  const payload = (await res.json()) as Payload
-  applyPayload(payload)
-  if (payload.warning) {
-    showStatus(payload.warning, 'error')
-  } else {
-    showStatus('Translations applied.', 'info')
+  const { jobId } = (await res.json()) as { jobId: string }
+  if (!jobId) {
+    isTranslating.value = false
+    showStatus('Translate job did not start.', 'error')
+    return
   }
+  startProgress(jobId)
 }
 
 function getApiKey() {
@@ -552,6 +606,51 @@ watch(
   (val) => saveLocalState(val),
   { deep: true }
 )
+
+function startProgress(id: string) {
+  progress.id = id
+  progress.status = 'running'
+  progress.done = 0
+  progress.total = 0
+  isTranslating.value = true
+  if (progressTimer) {
+    clearInterval(progressTimer)
+  }
+  pollProgress()
+  progressTimer = window.setInterval(pollProgress, 1200)
+}
+
+async function pollProgress() {
+  const res = await fetch('/api/progress')
+  if (!res.ok) return
+  const data = (await res.json()) as { job?: JobState | null; payload?: Payload }
+
+  if (data.payload) {
+    applyPayload(data.payload)
+  }
+
+  if (data.job) {
+    progress.id = data.job.id
+    progress.status = data.job.status
+    progress.done = data.job.done
+    progress.total = data.job.total
+    if (data.job.status !== 'running') {
+      stopProgress()
+      showStatus(data.job.status === 'done' ? 'Translations applied.' : data.job.message || 'Translation stopped.', data.job.status === 'done' ? 'info' : 'error')
+    }
+  } else if (progress.id) {
+    stopProgress()
+  }
+}
+
+function stopProgress() {
+  if (progressTimer) {
+    clearInterval(progressTimer)
+    progressTimer = null
+  }
+  isTranslating.value = false
+  progress.id = ''
+}
 
 function snapshotOptions() {
   return {

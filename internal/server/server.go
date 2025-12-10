@@ -19,6 +19,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/filesystem"
 	"github.com/gofiber/fiber/v2/middleware/logger"
+	"github.com/google/uuid"
 )
 
 // Payload represents the data returned to the UI.
@@ -70,6 +71,17 @@ type ServerState struct {
 	fileName        string
 	xcstrings       *model.XCStrings
 	targetLanguages []string
+	job             *Job
+}
+
+// Job tracks long-running translation progress.
+type Job struct {
+	ID        string    `json:"id"`
+	Status    string    `json:"status"` // running, done, error
+	Message   string    `json:"message,omitempty"`
+	Done      int       `json:"done"`
+	Total     int       `json:"total"`
+	UpdatedAt time.Time `json:"updatedAt"`
 }
 
 // Serve starts the Fiber server using the embedded UI assets.
@@ -89,6 +101,7 @@ func Serve(addr string) error {
 	api.Post("/upload", state.handleUpload)
 	api.Get("/strings", state.handleStrings)
 	api.Post("/translate", state.handleTranslate)
+	api.Get("/progress", state.handleProgress)
 	api.Get("/export", state.handleExport)
 
 	app.Use("/", filesystem.New(filesystem.Config{
@@ -139,6 +152,18 @@ func (s *ServerState) handleUpload(c *fiber.Ctx) error {
 
 	payload := s.buildPayload(nil)
 	return c.JSON(payload)
+}
+
+func (s *ServerState) handleProgress(c *fiber.Ctx) error {
+	s.mu.RLock()
+	job := s.job
+	payload := s.buildPayload(nil)
+	s.mu.RUnlock()
+
+	return c.JSON(fiber.Map{
+		"job":     job,
+		"payload": payload,
+	})
 }
 
 func (s *ServerState) handleStrings(c *fiber.Ctx) error {
@@ -195,39 +220,18 @@ func (s *ServerState) handleTranslate(c *fiber.Ctx) error {
 		xc.SourceLanguage = req.SourceLanguage
 	}
 
-	provider, err := buildProvider(strings.ToLower(req.Provider), req.Config)
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	requests := translator.CreateTranslationRequests(xc, req.TargetLanguages)
+	job := s.startJob(len(requests))
+
+	// If nothing to do, finish immediately.
+	if len(requests) == 0 {
+		s.finishJob("done", "")
+		return c.JSON(fiber.Map{"jobId": job.ID})
 	}
 
-	concurrency := req.Concurrency
-	if concurrency <= 0 {
-		concurrency = 4
-	}
+	go s.runTranslation(job, xc, req)
 
-	timeout := time.Duration(req.TimeoutSeconds) * time.Second
-	if timeout <= 0 {
-		timeout = 300 * time.Second
-	}
-
-	service := translator.NewTranslationService(provider, concurrency, timeout)
-	ctx := context.Background()
-
-	responses, translateErr := translator.TranslatePerLanguage(ctx, xc, req.TargetLanguages, service, nil)
-	translator.ApplyTranslations(xc, responses)
-
-	if len(req.TargetLanguages) > 0 {
-		s.mu.Lock()
-		s.targetLanguages = dedupe(req.TargetLanguages)
-		s.mu.Unlock()
-	}
-
-	payload := s.buildPayload(nil)
-	if translateErr != nil {
-		payload.Warning = translateErr.Error()
-	}
-
-	return c.JSON(payload)
+	return c.JSON(fiber.Map{"jobId": job.ID})
 }
 
 func (s *ServerState) buildPayload(targets []string) *Payload {
@@ -369,4 +373,98 @@ func dedupe(list []string) []string {
 		out = append(out, item)
 	}
 	return out
+}
+
+func (s *ServerState) startJob(total int) *Job {
+	job := &Job{
+		ID:        uuid.NewString(),
+		Status:    "running",
+		Done:      0,
+		Total:     total,
+		UpdatedAt: time.Now(),
+	}
+	s.mu.Lock()
+	s.job = job
+	s.mu.Unlock()
+	return job
+}
+
+func (s *ServerState) incrementJob(delta int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.job == nil {
+		return
+	}
+	s.job.Done += delta
+	if s.job.Done > s.job.Total && s.job.Total > 0 {
+		s.job.Done = s.job.Total
+	}
+	s.job.UpdatedAt = time.Now()
+}
+
+func (s *ServerState) finishJob(status, msg string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.job == nil {
+		return
+	}
+	s.job.Status = status
+	s.job.Message = msg
+	s.job.UpdatedAt = time.Now()
+}
+
+func (s *ServerState) runTranslation(job *Job, xc *model.XCStrings, req TranslateRequest) {
+	provider, err := buildProvider(strings.ToLower(req.Provider), req.Config)
+	if err != nil {
+		s.finishJob("error", err.Error())
+		return
+	}
+
+	concurrency := req.Concurrency
+	if concurrency <= 0 {
+		concurrency = 4
+	}
+
+	timeout := time.Duration(req.TimeoutSeconds) * time.Second
+	if timeout <= 0 {
+		timeout = 300 * time.Second
+	}
+
+	service := translator.NewTranslationService(provider, concurrency, timeout)
+	ctx := context.Background()
+
+	progressBuilder := func(target string, total int) translator.ProgressReporter {
+		return func(done, total int, resp model.TranslationResponse) {
+			if resp.Error == nil {
+				s.applyResponse(resp)
+			}
+			s.incrementJob(1)
+		}
+	}
+
+	responses, translateErr := translator.TranslatePerLanguage(ctx, xc, req.TargetLanguages, service, progressBuilder)
+	translator.ApplyTranslations(xc, responses)
+
+	if len(req.TargetLanguages) > 0 {
+		s.mu.Lock()
+		s.targetLanguages = dedupe(req.TargetLanguages)
+		s.mu.Unlock()
+	}
+
+	if translateErr != nil {
+		s.finishJob("error", translateErr.Error())
+		return
+	}
+
+	s.finishJob("done", "")
+}
+
+// applyResponse applies a single successful translation response.
+func (s *ServerState) applyResponse(resp model.TranslationResponse) {
+	if resp.Error != nil {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	translator.ApplyTranslations(s.xcstrings, []model.TranslationResponse{resp})
 }
