@@ -141,6 +141,31 @@ xcstrings-translator serve --addr :8080
 
 Upload a `Localizable.xcstrings` file, choose target languages, run batch translation with your provider keys, and export the updated file directly from the browser. Progress is streamed; translated keys appear in the grid in real time so you don’t lose work if rate limits interrupt a long run.
 
+### Native desktop app (Windows/macOS/Linux)
+The CLI also ships with a native window that embeds the same UI, so you don’t need to keep a browser tab open:
+```bash
+# Launch the desktop window (resizes freely)
+xcstrings-translator gui --width 1400 --height 900
+```
+
+Prerequisites:
+- Windows: WebView2 runtime (installed by default on modern Windows 10/11; otherwise install from Microsoft).
+- macOS: uses built-in WebKit (no extra install).
+- Linux: needs WebKitGTK (e.g. `sudo apt install libwebkit2gtk-4.1-dev` on Debian/Ubuntu).
+
+Build platform-specific binaries from any host:
+```bash
+# macOS
+GOOS=darwin GOARCH=arm64 go build -o bin/xcstrings-translator-darwin ./...
+
+# Windows
+GOOS=windows GOARCH=amd64 go build -o bin/xcstrings-translator.exe ./...
+
+# Linux
+GOOS=linux GOARCH=amd64 go build -o bin/xcstrings-translator-linux ./...
+```
+These builds are CGO-enabled; make sure the target platform’s toolchain and WebView dependencies are present (Xcode Command Line Tools on macOS, WebView2 SDK/MinGW on Windows, WebKitGTK dev packages on Linux).
+
 ## 🔒 Security Features
 
 - API keys are passed via command-line arguments or environment variables

@@ -116,6 +116,25 @@ xcstrings-translator serve --addr :8080
 
 在浏览器中上传 `Localizable.xcstrings`，选择目标语言，填入各翻译提供商的密钥后运行批量翻译，并可直接导出结果。翻译进度实时推送，已翻译的条目会即时刷新，长任务遇到限流也不会丢失已完成的数据。
 
+### 原生桌面应用（Windows/macOS/Linux）
+无需浏览器，在本地窗口中使用同样的 UI：
+```bash
+xcstrings-translator gui --width 1400 --height 900
+```
+
+前置依赖：
+- Windows：需要 WebView2 运行时（Win10/11 默认包含，缺失时请从微软官网安装）。
+- macOS：使用系统内置 WebKit，无需额外安装。
+- Linux：需要 WebKitGTK（如 Debian/Ubuntu 执行 `sudo apt install libwebkit2gtk-4.1-dev`）。
+
+跨平台构建示例：
+```bash
+GOOS=darwin GOARCH=arm64 go build -o bin/xcstrings-translator-darwin ./...
+GOOS=windows GOARCH=amd64 go build -o bin/xcstrings-translator.exe ./...
+GOOS=linux GOARCH=amd64 go build -o bin/xcstrings-translator-linux ./...
+```
+这些构建依赖 CGO，请确保目标平台的工具链和 WebView 依赖已安装（macOS 需 Xcode Command Line Tools，Windows 需 WebView2 SDK/MinGW，Linux 需 WebKitGTK 开发包）。
+
 ## 🔒 安全特性
 - API密钥通过命令行参数或环境变量传递
 - 不存储敏感信息

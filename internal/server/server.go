@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"net"
 	"net/http"
 	"sort"
 	"strings"
@@ -86,9 +87,31 @@ type Job struct {
 
 // Serve starts the Fiber server using the embedded UI assets.
 func Serve(addr string) error {
+	app, err := NewApp()
+	if err != nil {
+		return err
+	}
+	return app.Listen(addr)
+}
+
+// ServeWithListener serves the app using a pre-bound listener (useful for GUI mode).
+func ServeWithListener(ln net.Listener) (*fiber.App, <-chan error, error) {
+	app, err := NewApp()
+	if err != nil {
+		return nil, nil, err
+	}
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- app.Listener(ln)
+	}()
+	return app, errCh, nil
+}
+
+// NewApp constructs the Fiber app with embedded assets without starting the server.
+func NewApp() (*fiber.App, error) {
 	distFS, err := fs.Sub(webui.EmbeddedFS, "dist")
 	if err != nil {
-		return fmt.Errorf("embedded UI missing: %w", err)
+		return nil, fmt.Errorf("embedded UI missing: %w", err)
 	}
 
 	state := &ServerState{}
@@ -111,7 +134,7 @@ func Serve(addr string) error {
 		NotFoundFile: "index.html",
 	}))
 
-	return app.Listen(addr)
+	return app, nil
 }
 
 func (s *ServerState) handleUpload(c *fiber.Ctx) error {
