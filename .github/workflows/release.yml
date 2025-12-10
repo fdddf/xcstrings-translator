@@ -20,7 +20,7 @@ jobs:
             GOARCH: amd64
             target: darwin-amd64
             ext: ""
-          - os: macos-14
+          - os: macos-latest
             GOOS: darwin
             GOARCH: arm64
             target: darwin-arm64
@@ -59,7 +59,8 @@ jobs:
       if: matrix.GOOS == 'linux'
       run: |
         sudo apt-get update
-        sudo apt-get install -y libwebkit2gtk-4.0-dev libgtk-3-dev pkg-config
+        sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev pkg-config
+        sudo ln -sf /usr/lib/x86_64-linux-gnu/pkgconfig/webkit2gtk-4.1.pc /usr/lib/x86_64-linux-gnu/pkgconfig/webkit2gtk-4.0.pc
 
     - name: Set up Go
       uses: actions/setup-go@v4
