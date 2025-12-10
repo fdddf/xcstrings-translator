@@ -15,11 +15,6 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: macos-13
-            GOOS: darwin
-            GOARCH: amd64
-            target: darwin-amd64
-            ext: ""
           - os: macos-14
             GOOS: darwin
             GOARCH: arm64
