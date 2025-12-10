@@ -204,14 +204,22 @@
               </label>
             </div>
 
-            <button
-              class="w-full rounded-xl bg-mint px-4 py-3 text-center text-sm font-semibold text-midnight shadow-lg shadow-mint/20 transition hover:shadow-mint/40 disabled:cursor-not-allowed disabled:opacity-60"
-              :disabled="isTranslating || !hasFile || !state.targetLanguages.length"
-              @click="batchTranslate"
-            >
-              <span v-if="isTranslating">Translating…</span>
-              <span v-else>Run batch translate</span>
-            </button>
+            <div class="grid grid-cols-2 gap-3">
+              <button
+                class="w-full rounded-xl bg-mint px-4 py-3 text-center text-sm font-semibold text-midnight shadow-lg shadow-mint/20 transition hover:shadow-mint/40 disabled:cursor-not-allowed disabled:opacity-60"
+                :disabled="isTranslating || !hasFile || !state.targetLanguages.length"
+                @click="batchTranslate"
+              >
+                <span v-if="isTranslating">Translating…</span>
+                <span v-else>Run batch translate</span>
+              </button>
+              <button
+                class="w-full rounded-xl border border-white/20 px-4 py-3 text-center text-sm font-semibold text-slate-100 transition hover:border-mint/60 hover:text-mint"
+                @click="saveOptions"
+              >
+                Save options
+              </button>
+            </div>
             <p class="text-xs text-slate-400">We only translate missing entries for the selected targets.</p>
           </div>
         </section>
@@ -281,7 +289,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 
 type LocalizationEntry = {
   key: string
@@ -332,6 +340,8 @@ const statusTone = ref<'info' | 'error'>('info')
 const filter = ref('')
 const targetInput = ref('')
 const fileInput = ref<HTMLInputElement | null>(null)
+
+const LOCAL_KEY = 'xcstrings-translator-ui'
 
 const providerLabel = computed(() => providers.find((p) => p.id === state.provider)?.name ?? '')
 const hasFile = computed(() => !!state.fileName)
@@ -437,6 +447,11 @@ function applyPayload(payload: Payload) {
   state.entries = payload.entries
 }
 
+function saveOptions() {
+  saveLocalState(snapshotOptions())
+  showStatus('Options saved locally.', 'info')
+}
+
 async function batchTranslate() {
   if (!state.fileName) {
     showStatus('Upload a file first.', 'error')
@@ -525,5 +540,49 @@ async function refreshState() {
 
 onMounted(() => {
   refreshState().catch(() => null)
+
+  const saved = loadLocalState()
+  if (saved) {
+    Object.assign(state, saved)
+  }
 })
+
+watch(
+  () => snapshotOptions(),
+  (val) => saveLocalState(val),
+  { deep: true }
+)
+
+function snapshotOptions() {
+  return {
+    provider: state.provider,
+    sourceLanguage: state.sourceLanguage,
+    targetLanguages: [...state.targetLanguages],
+    concurrency: state.concurrency,
+    timeoutSeconds: state.timeoutSeconds,
+    openai: { ...state.openai },
+    google: { ...state.google },
+    deepl: { ...state.deepl },
+    baidu: { ...state.baidu }
+  }
+}
+
+function loadLocalState() {
+  try {
+    const raw = localStorage.getItem(LOCAL_KEY)
+    if (!raw) return null
+    return JSON.parse(raw)
+  } catch (err) {
+    console.warn('Failed to load local state', err)
+    return null
+  }
+}
+
+function saveLocalState(val: unknown) {
+  try {
+    localStorage.setItem(LOCAL_KEY, JSON.stringify(val))
+  } catch (err) {
+    console.warn('Failed to persist local state', err)
+  }
+}
 </script>
