@@ -77,3 +77,10 @@ The GitHub Actions workflow builds for both `linux/amd64` and `linux/arm64` arch
 - Minimal Alpine base image
 - Health checks built-in
 - Built with security scanning via Trivy
+
+## Build Notes
+
+- CGO disabled for better portability
+- Uses system users/groups for container security
+- CA certificates updated in final image
+- Health check uses shell command format for reliability

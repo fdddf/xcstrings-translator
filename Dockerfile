@@ -1,5 +1,5 @@
 # Multi-stage build for xcstrings-translator
-FROM golang:1.25-alpine AS builder
+FROM golang:1.21-alpine AS builder
 
 # Install build dependencies
 RUN apk add --no-cache \
@@ -18,7 +18,7 @@ RUN go mod download
 COPY . .
 
 # Build the application
-RUN go build -o bin/xcstrings-translator .
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o bin/xcstrings-translator .
 
 # Final stage - minimal Alpine image
 FROM alpine:latest
@@ -26,11 +26,12 @@ FROM alpine:latest
 # Install runtime dependencies
 RUN apk --no-cache add \
     ca-certificates \
-    tzdata
+    tzdata \
+    && update-ca-certificates
 
 # Create non-root user
-RUN addgroup -g 65532 nonroot && \
-    adduser -D -u 65532 -G nonroot nonroot
+RUN addgroup -g 65532 --system nonroot && \
+    adduser -D -u 65532 -G nonroot --system nonroot
 
 # Copy the binary from builder stage
 COPY --from=builder /app/bin/xcstrings-translator /usr/local/bin/xcstrings-translator
@@ -49,7 +50,7 @@ USER nonroot:nonroot
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD xcstrings-translator --help || exit 1
+    CMD ["sh", "-c", "xcstrings-translator --help"]
 
 # Default command
 ENTRYPOINT ["xcstrings-translator"]
