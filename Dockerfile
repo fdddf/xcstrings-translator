@@ -1,24 +1,43 @@
 # Multi-stage build for xcstrings-translator
-FROM golang:1.21-alpine AS builder
+
+# UI builder stage
+FROM node:20-alpine AS ui-builder
+
+# Install git for cloning
+RUN apk add --no-cache git
+
+# Set working directory
+WORKDIR /app
+
+# Clone the repository
+RUN git clone https://github.com/fdddf/xcstrings-translator.git . && \
+    cd web && npm install && npm run build
+
+# Builder stage
+FROM golang:1.25-alpine AS builder
 
 # Install build dependencies
 RUN apk add --no-cache \
     git \
     gcc \
-    musl-dev
+    musl-dev \
+    nodejs \
+    npm
 
 # Set working directory
 WORKDIR /app
 
-# Copy go mod files
-COPY go.mod go.sum ./
-RUN go mod download
+# Clone the repository
+RUN git clone https://github.com/fdddf/xcstrings-translator.git .
 
-# Copy source code
-COPY . .
+# Install Go dependencies
+RUN go mod tidy
 
-# Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o bin/xcstrings-translator .
+# Copy built UI assets from ui-builder stage
+COPY --from=ui-builder /app/webui/dist ./webui/dist
+
+# Build the application with GUI tag using Makefile
+RUN make gui
 
 # Final stage - minimal Alpine image
 FROM alpine:latest
@@ -34,7 +53,7 @@ RUN addgroup -g 65532 --system nonroot && \
     adduser -D -u 65532 -G nonroot --system nonroot
 
 # Copy the binary from builder stage
-COPY --from=builder /app/bin/xcstrings-translator /usr/local/bin/xcstrings-translator
+COPY --from=builder /app/xcstrings-translator /usr/local/bin/xcstrings-translator
 
 # Create app directory and set permissions
 RUN mkdir -p /app && \
