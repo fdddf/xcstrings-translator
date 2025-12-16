@@ -1,5 +1,7 @@
 xcstrings-translator
 .DS_Store
 dist/
+!webui/dist/
+!webui/dist/**
 *.zip
 node_modules/
