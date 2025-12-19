@@ -16,28 +16,21 @@ RUN git clone https://github.com/fdddf/xcstrings-translator.git . && \
 # Builder stage
 FROM golang:1.25-alpine AS builder
 
-# Install build dependencies
-RUN apk add --no-cache \
-    git \
-    gcc \
-    musl-dev \
-    nodejs \
-    npm
+RUN apk update && apk add --no-cache make gcc musl-dev
 
 # Set working directory
 WORKDIR /app
 
-# Clone the repository
-RUN git clone https://github.com/fdddf/xcstrings-translator.git .
+COPY . .
 
 # Install Go dependencies
-RUN go mod tidy
+RUN go env -w GOPROXY='https://goproxy.cn,direct' && go mod tidy
 
 # Copy built UI assets from ui-builder stage
 COPY --from=ui-builder /app/webui/dist ./webui/dist
 
-# Build the application with GUI tag using Makefile
-RUN make gui
+# Build the application using Makefile
+RUN make
 
 # Final stage - minimal Alpine image
 FROM alpine:latest
@@ -69,8 +62,11 @@ USER nonroot:nonroot
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD ["sh", "-c", "xcstrings-translator --help"]
+    CMD nc -z localhost 8080 || exit 1
 
 # Default command
 ENTRYPOINT ["xcstrings-translator"]
-CMD ["--help"]
+CMD ["serve"]
+
+# Expose default port
+EXPOSE 8080
