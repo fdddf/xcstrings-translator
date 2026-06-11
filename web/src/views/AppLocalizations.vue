@@ -198,7 +198,21 @@
         </div>
 
         <div class="mt-4 space-y-4">
-          <div class="flex items-center gap-2 p-3 rounded-lg bg-mint/10 border border-mint/20">
+          <!-- Translation provider selection -->
+          <div>
+            <label class="text-sm text-slate-400">{{ t('applocalizations.translateProvider') }}</label>
+            <select
+              v-model="selectedTranslateProviderId"
+              class="mt-1 w-full rounded-lg bg-white/5 px-3 py-2 text-sm ring-1 ring-white/10 focus:ring-2 focus:ring-mint"
+            >
+              <option :value="null">{{ t('applocalizations.localHunyuan') }}</option>
+              <option v-for="config in translationProviderConfigs" :key="config.id" :value="config.id">
+                {{ getProviderDisplayName(config.providerType) }}{{ config.isDefault ? ' ★' : '' }}
+              </option>
+            </select>
+          </div>
+
+          <div v-if="selectedTranslateProviderId === null" class="flex items-center gap-2 p-3 rounded-lg bg-mint/10 border border-mint/20">
             <span class="text-lg">🦙</span>
             <div>
               <p class="text-sm font-medium text-mint">腾讯混元 Hunyuan 模型</p>
@@ -304,6 +318,20 @@
               <p class="text-sm font-medium text-blue-400">{{ t('applocalizations.updateContentDesc') }}</p>
               <p class="text-xs text-slate-400">{{ t('applocalizations.updateContentFields') }}</p>
             </div>
+          </div>
+
+          <!-- Translation provider selection -->
+          <div>
+            <label class="text-sm text-slate-400">{{ t('applocalizations.translateProvider') }}</label>
+            <select
+              v-model="selectedTranslateProviderId"
+              class="mt-1 w-full rounded-lg bg-white/5 px-3 py-2 text-sm ring-1 ring-white/10 focus:ring-2 focus:ring-mint"
+            >
+              <option :value="null">{{ t('applocalizations.localHunyuan') }}</option>
+              <option v-for="config in translationProviderConfigs" :key="config.id" :value="config.id">
+                {{ getProviderDisplayName(config.providerType) }}{{ config.isDefault ? ' ★' : '' }}
+              </option>
+            </select>
           </div>
 
           <div>
@@ -460,7 +488,17 @@
               </div>
             </div>
 
-            <div class="flex justify-end gap-2 pt-4">
+            <div class="flex items-center justify-end gap-2 pt-4">
+              <select
+                v-model="selectedTranslateProviderId"
+                class="rounded-lg bg-white/5 px-3 py-2 text-sm ring-1 ring-white/10 focus:ring-2 focus:ring-mint"
+                :title="t('applocalizations.translateProvider')"
+              >
+                <option :value="null">{{ t('applocalizations.localHunyuan') }}</option>
+                <option v-for="config in translationProviderConfigs" :key="config.id" :value="config.id">
+                  {{ getProviderDisplayName(config.providerType) }}{{ config.isDefault ? ' ★' : '' }}
+                </option>
+              </select>
               <button
                 type="button"
                 class="rounded-lg border border-white/20 px-4 py-2 text-sm hover:border-mint/60 hover:text-mint"
@@ -535,6 +573,21 @@ const batchTranslating = ref(false)
 const batchTranslateProgress = ref(0)
 const batchTranslateResult = ref<{ message: string; progress?: number; done?: number; total?: number } | null>(null)
 const overwriteExisting = ref(false) // Whether to overwrite existing translations
+
+// Translation provider selection (shared by single / batch / update-content flows).
+// A null selection means the local Hunyuan (llama) model configured on the backend.
+const translationProviderConfigs = ref<ProviderConfig[]>([])
+const selectedTranslateProviderId = ref<number | null>(null)
+
+// translateProviderPayload returns the providerType / providerConfigId to send to the backend
+// based on the currently selected translation provider.
+function translateProviderPayload(): { providerType: string; providerConfigId?: number } {
+  if (selectedTranslateProviderId.value != null) {
+    const cfg = translationProviderConfigs.value.find(c => c.id === selectedTranslateProviderId.value)
+    return { providerType: cfg?.providerType || 'llama', providerConfigId: selectedTranslateProviderId.value }
+  }
+  return { providerType: 'llama' }
+}
 
 // Update Content (What's New + Promotional Text) translate state
 const showUpdateContentModal = ref(false)
@@ -706,7 +759,8 @@ function getProviderDisplayName(providerType: string): string {
     'google': 'Google',
     'deepl': 'DeepL',
     'baidu': 'Baidu',
-    'appleconnect': 'Apple Connect'
+    'appleconnect': 'Apple Connect',
+    'llama': 'Hunyuan (Llama)'
   }
   return names[providerType] || providerType
 }
@@ -850,6 +904,19 @@ async function fetchProviderConfigs() {
           // If no default config, select the first one
           selectedConfigId.value = appleConnectConfigs.value[0].id
         }
+      }
+    }
+
+    // Fetch translation provider configs (everything except Apple Connect bindings)
+    const providerResponse = await api.getProviderConfigs()
+    if (providerResponse.success) {
+      translationProviderConfigs.value = providerResponse.configs.filter(c => c.providerType !== 'appleconnect')
+
+      // Default to the user's default translation provider if one is set; otherwise keep the
+      // local Hunyuan model selected.
+      const defaultProvider = translationProviderConfigs.value.find(c => c.isDefault)
+      if (defaultProvider) {
+        selectedTranslateProviderId.value = defaultProvider.id
       }
     }
   } catch (error) {
@@ -1041,10 +1108,12 @@ async function translateLocalization() {
     // Get source language (en-US or primary locale)
     const sourceLanguage = app.value?.primaryLocale || 'en-US'
     const targetLanguage = editLocalizationData.languageCode
+    // null selection => local Hunyuan; otherwise translate via the saved provider config
+    const providerConfigId = selectedTranslateProviderId.value ?? undefined
 
     // Translate name
     if (editLocalizationData.name) {
-      const nameResult = await api.translateText(editLocalizationData.name, sourceLanguage, targetLanguage)
+      const nameResult = await api.translateText(editLocalizationData.name, sourceLanguage, targetLanguage, providerConfigId)
       if (nameResult.success) {
         editLocalizationData.name = nameResult.text
       }
@@ -1052,7 +1121,7 @@ async function translateLocalization() {
 
     // Translate subtitle
     if (editLocalizationData.subtitle) {
-      const subtitleResult = await api.translateText(editLocalizationData.subtitle, sourceLanguage, targetLanguage)
+      const subtitleResult = await api.translateText(editLocalizationData.subtitle, sourceLanguage, targetLanguage, providerConfigId)
       if (subtitleResult.success) {
         editLocalizationData.subtitle = subtitleResult.text
       }
@@ -1060,7 +1129,7 @@ async function translateLocalization() {
 
     // Translate long description
     if (editLocalizationData.description) {
-      const descResult = await api.translateText(editLocalizationData.description, sourceLanguage, targetLanguage)
+      const descResult = await api.translateText(editLocalizationData.description, sourceLanguage, targetLanguage, providerConfigId)
       if (descResult.success) {
         editLocalizationData.description = descResult.text
       }
@@ -1068,7 +1137,7 @@ async function translateLocalization() {
 
     // Translate keywords
     if (editLocalizationData.keywords) {
-      const keywordsResult = await api.translateText(editLocalizationData.keywords, sourceLanguage, targetLanguage)
+      const keywordsResult = await api.translateText(editLocalizationData.keywords, sourceLanguage, targetLanguage, providerConfigId)
       if (keywordsResult.success) {
         editLocalizationData.keywords = keywordsResult.text
       }
@@ -1076,7 +1145,7 @@ async function translateLocalization() {
 
     // Translate promotional text
     if (editLocalizationData.promotionalText) {
-      const promoResult = await api.translateText(editLocalizationData.promotionalText, sourceLanguage, targetLanguage)
+      const promoResult = await api.translateText(editLocalizationData.promotionalText, sourceLanguage, targetLanguage, providerConfigId)
       if (promoResult.success) {
         editLocalizationData.promotionalText = promoResult.text
       }
@@ -1084,7 +1153,7 @@ async function translateLocalization() {
 
     // Translate what's new
     if (editLocalizationData.whatsNew) {
-      const notesResult = await api.translateText(editLocalizationData.whatsNew, sourceLanguage, targetLanguage)
+      const notesResult = await api.translateText(editLocalizationData.whatsNew, sourceLanguage, targetLanguage, providerConfigId)
       if (notesResult.success) {
         editLocalizationData.whatsNew = notesResult.text
       }
@@ -1190,18 +1259,18 @@ async function submitUpdateContentTranslate() {
     const sourceLanguage = app.value?.primaryLocale || 'en-US'
 
     // Submit translation job with onlyTranslateWhatsNew=true (includes PromotionalText too)
+    const { providerType, providerConfigId } = translateProviderPayload()
+    const configData: Record<string, any> = {}
+    if (providerType === 'llama') {
+      Object.assign(configData, { threads: 4, temperature: 0.7, topP: 0.6, topK: 20, tokens: 4096 })
+    }
     const response = await api.translateAppLocalizations(appId.value, {
-      providerType: 'llama',
+      providerType,
+      providerConfigId,
       sourceLanguage: sourceLanguage,
       targetLanguages: selectedUpdateContentLanguages.value,
       onlyTranslateWhatsNew: true, // This now includes both What's New and Promotional Text
-      configData: {
-        threads: 4,
-        temperature: 0.7,
-        topP: 0.6,
-        topK: 20,
-        tokens: 4096
-      }
+      configData
     })
 
     if (response.success) {
@@ -1295,24 +1364,25 @@ async function submitBatchTranslate() {
     // Get source language (primary locale or en-US)
     const sourceLanguage = app.value?.primaryLocale || 'en-US'
 
-    // Submit translation job using llama/hunyuan
-    // Note: The backend will use default llama configuration from backend/config.yaml
-    // modelPath and libPath are not required to be sent from frontend
-    // skipExisting: if not overwriting, skip fields that already have content
+    // Submit translation job using the selected provider (local Hunyuan or a saved provider
+    // such as an OpenAI-compatible endpoint). When llama is used the backend falls back to the
+    // default configuration from backend/config.yaml. For saved providers the backend resolves
+    // the real config (including secrets) from providerConfigId.
+    const { providerType, providerConfigId } = translateProviderPayload()
+    const configData: Record<string, any> = {
+      // Skip existing translations if overwrite is false
+      skipExisting: !overwriteExisting.value
+    }
+    if (providerType === 'llama') {
+      // Hunyuan model generation parameters
+      Object.assign(configData, { threads: 4, temperature: 0.7, topP: 0.6, topK: 20, tokens: 4096 })
+    }
     const response = await api.translateAppLocalizations(appId.value, {
-      providerType: 'llama',
+      providerType,
+      providerConfigId,
       sourceLanguage: sourceLanguage,
       targetLanguages: selectedBatchTranslateLanguages.value,
-      configData: {
-        // Hunyuan model generation parameters
-        threads: 4,
-        temperature: 0.7,
-        topP: 0.6,
-        topK: 20,
-        tokens: 4096,
-        // Skip existing translations if overwrite is false
-        skipExisting: !overwriteExisting.value
-      }
+      configData
     })
 
     if (response.success) {

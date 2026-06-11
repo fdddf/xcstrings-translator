@@ -20,6 +20,7 @@ type QueueTranslationJobRequest struct {
 	ProjectID              *uint                  `json:"projectId"`
 	AppID                  *uint                  `json:"appId"`
 	ProviderType           string                 `json:"providerType"`
+	ProviderConfigID       *uint                  `json:"providerConfigId"`
 	SourceLanguage         string                 `json:"sourceLanguage"`
 	TargetLanguages        []string               `json:"targetLanguages"`
 	OnlyTranslateWhatsNew  bool                   `json:"onlyTranslateWhatsNew"`
@@ -60,10 +61,32 @@ func (ctrl *TranslationController) QueueTranslationJob(c *fiber.Ctx) error {
 		}
 	}
 
-	// Add OnlyTranslateWhatsNew to ConfigData if specified
 	if req.ConfigData == nil {
 		req.ConfigData = make(map[string]interface{})
 	}
+
+	// When a saved provider configuration is referenced, resolve its real (unsanitized) config
+	// server-side. Secrets such as the API key are never sent by the client, so the resolved
+	// values are merged underneath any request-supplied options (e.g. skipExisting, generation
+	// parameters), which take precedence.
+	if req.ProviderConfigID != nil {
+		providerType, configData, err := services.ResolveProviderConfigForUser(userID, *req.ProviderConfigID)
+		if err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+
+		req.ProviderType = providerType
+		merged := make(map[string]interface{}, len(configData)+len(req.ConfigData))
+		for k, v := range configData {
+			merged[k] = v
+		}
+		for k, v := range req.ConfigData {
+			merged[k] = v
+		}
+		req.ConfigData = merged
+	}
+
+	// Add OnlyTranslateWhatsNew to ConfigData if specified
 	if req.OnlyTranslateWhatsNew {
 		req.ConfigData["onlyTranslateWhatsNew"] = true
 	}

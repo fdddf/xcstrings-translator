@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	appcontext "github.com/fdddf/opentrans/internal/context"
 	"github.com/fdddf/opentrans/internal/model"
 	"github.com/fdddf/opentrans/internal/services"
 	"github.com/fdddf/opentrans/internal/translator"
@@ -67,9 +68,10 @@ type UILocalization struct {
 
 // TranslateTextRequest describes the request for translating a single text
 type TranslateTextRequest struct {
-	Text           string `json:"text"`
-	SourceLanguage string `json:"sourceLanguage"`
-	TargetLanguage string `json:"targetLanguage"`
+	Text             string `json:"text"`
+	SourceLanguage   string `json:"sourceLanguage"`
+	TargetLanguage   string `json:"targetLanguage"`
+	ProviderConfigID *uint  `json:"providerConfigId"`
 }
 
 // HandleUpload handles file upload
@@ -237,13 +239,35 @@ func (ctrl *FileController) HandleTranslateText(c *fiber.Ctx) error {
 		TargetLanguage: req.TargetLanguage,
 	}
 
-	// Use global Llama translator
-	if globalLlamaTranslator == nil {
-		return c.JSON(fiber.Map{"success": false, "error": "translation service not available - please ensure the Hunyuan model is properly configured"})
+	// Resolve the translation provider. When a saved provider configuration is referenced
+	// (e.g. an OpenAI-compatible endpoint), build a translator from it; otherwise fall back to
+	// the local Llama/Hunyuan model.
+	var provider model.TranslationProvider
+	if req.ProviderConfigID != nil {
+		userID, ok := appcontext.GetUserIDFromContext(c)
+		if !ok {
+			return c.JSON(fiber.Map{"success": false, "error": "user not authenticated"})
+		}
+
+		providerType, configData, err := services.ResolveProviderConfigForUser(userID, *req.ProviderConfigID)
+		if err != nil {
+			return c.JSON(fiber.Map{"success": false, "error": err.Error()})
+		}
+
+		provider, err = services.CreateTranslationProvider(providerType, configData)
+		if err != nil {
+			return c.JSON(fiber.Map{"success": false, "error": fmt.Sprintf("failed to initialize provider: %v", err)})
+		}
+	} else {
+		// Use global Llama translator
+		if globalLlamaTranslator == nil {
+			return c.JSON(fiber.Map{"success": false, "error": "translation service not available - please ensure the Hunyuan model is properly configured"})
+		}
+		provider = globalLlamaTranslator
 	}
 
-	// Translate the text directly using Llama translator
-	response, err := globalLlamaTranslator.Translate(c.Context(), translationReq)
+	// Translate the text directly using the resolved provider
+	response, err := provider.Translate(c.Context(), translationReq)
 	if err != nil {
 		return c.JSON(fiber.Map{"success": false, "error": fmt.Sprintf("translation failed: %v", err)})
 	}

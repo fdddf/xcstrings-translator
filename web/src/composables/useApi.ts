@@ -610,13 +610,14 @@ class ApiClient {
     return this.request<LanguagesResponse>('/protected/languages');
   }
 
-  async translateText(text: string, sourceLanguage: string, targetLanguage: string): Promise<any> {
+  async translateText(text: string, sourceLanguage: string, targetLanguage: string, providerConfigId?: number): Promise<any> {
     return this.request('/protected/translate/text', {
       method: 'POST',
       body: JSON.stringify({
         text,
         sourceLanguage,
-        targetLanguage
+        targetLanguage,
+        providerConfigId
       }),
     });
   }
@@ -699,6 +700,7 @@ class ApiClient {
   // App localization translation methods
   async translateAppLocalizations(appId: number, translateData: {
     providerType: string;
+    providerConfigId?: number;
     sourceLanguage: string;
     targetLanguages: string[];
     onlyTranslateWhatsNew?: boolean;

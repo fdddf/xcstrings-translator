@@ -269,6 +269,23 @@ func (s *ProviderService) GetProviderConfigForTranslation(config *database.Provi
 	return config.ConfigData
 }
 
+// ResolveProviderConfigForUser fetches a saved provider configuration, verifies it belongs to the
+// given user, and returns its provider type together with the raw (unsanitized) config data so it
+// can be used by the translation services. Secrets such as the API key are never exposed to the
+// client, so callers reference a configuration by ID and let the server resolve the real values.
+func (s *ProviderService) ResolveProviderConfigForUser(userID, configID uint) (string, map[string]interface{}, error) {
+	config, err := s.GetProviderConfig(configID)
+	if err != nil {
+		return "", nil, err
+	}
+
+	if config.UserID != userID {
+		return "", nil, errors.New("provider configuration not found")
+	}
+
+	return config.ProviderType, config.ConfigData, nil
+}
+
 // Global functions for backward compatibility
 var providerServiceInstance *ProviderService
 
@@ -321,4 +338,8 @@ func SanitizeProviderConfig(config *database.ProviderConfig) *database.ProviderC
 
 func GetProviderConfigForTranslation(config *database.ProviderConfig) map[string]interface{} {
 	return providerServiceInstance.GetProviderConfigForTranslation(config)
+}
+
+func ResolveProviderConfigForUser(userID, configID uint) (string, map[string]interface{}, error) {
+	return providerServiceInstance.ResolveProviderConfigForUser(userID, configID)
 }

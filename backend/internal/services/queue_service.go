@@ -948,6 +948,13 @@ func CreateTranslationRequestsForLanguages(xcstrings *model.XCStrings, targetLan
 	return make([]interface{}, 0)
 }
 
+// CreateTranslationProvider builds a translation provider from a provider type and its config data.
+// It is the exported entry point used by controllers that need to translate synchronously (outside
+// the queue worker) such as the single-text localization translation endpoint.
+func CreateTranslationProvider(providerType string, configData map[string]interface{}) (model.TranslationProvider, error) {
+	return createProviderFromConfig(providerType, configData)
+}
+
 // createProviderFromConfig creates a provider based on configuration data
 func createProviderFromConfig(providerType string, configData map[string]interface{}) (model.TranslationProvider, error) {
 	providerType = strings.ToLower(providerType)
@@ -1000,7 +1007,10 @@ func createProviderFromConfig(providerType string, configData map[string]interfa
 			temperature = t
 		}
 		maxTokens := 1024
-		if mt, ok := configData["maxTokens"].(int); ok {
+		// JSON numbers decode to float64, so accept both float64 and int for robustness.
+		if mt, ok := configData["maxTokens"].(float64); ok && mt > 0 {
+			maxTokens = int(mt)
+		} else if mt, ok := configData["maxTokens"].(int); ok && mt > 0 {
 			maxTokens = mt
 		}
 		return translator.NewOpenAITranslator(apiKey, apiBaseURL, model, temperature, maxTokens), nil

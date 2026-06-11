@@ -278,6 +278,8 @@
     "whatsNewPlaceholder": "此版本的新内容",
     "batchTranslate": "一键翻译",
     "batchTranslateDesc": "批量添加并翻译所有语言",
+    "translateProvider": "翻译服务商",
+    "localHunyuan": "本地混元 (Llama)",
     "translateAll": "翻译全部",
     "selectTargetLanguages": "选择目标语言",
     "selectTargetLanguagesDesc": "选择要翻译的语言，未选择的将被跳过",
