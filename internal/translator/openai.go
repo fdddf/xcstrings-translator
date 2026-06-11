@@ -344,7 +344,6 @@ func (o *OpenAITranslator) translateOnce(ctx context.Context, req model.Translat
 	}
 
 	var translationResponse OpenAIChatResponse
-	fmt.Printf("OpenAI Translation Response status: %d\n", resp.StatusCode())
 	err = json.Unmarshal(body, &translationResponse)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse response: %v", err)

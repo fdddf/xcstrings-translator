@@ -178,10 +178,18 @@ func (s *ServerState) handleUpload(c *fiber.Ctx) error {
 }
 
 func (s *ServerState) handleProgress(c *fiber.Ctx) error {
+	// Snapshot the job by value so JSON marshalling can't race with
+	// incrementJob/finishJob, then build the payload without holding the lock
+	// (buildPayload acquires it itself; RWMutex is not reentrant).
 	s.mu.RLock()
-	job := s.job
-	payload := s.buildPayload(nil)
+	var job *Job
+	if s.job != nil {
+		jobCopy := *s.job
+		job = &jobCopy
+	}
 	s.mu.RUnlock()
+
+	payload := s.buildPayload(nil)
 
 	return c.JSON(fiber.Map{
 		"job":     job,
@@ -198,16 +206,17 @@ func (s *ServerState) handleStrings(c *fiber.Ctx) error {
 }
 
 func (s *ServerState) handleExport(c *fiber.Ctx) error {
+	// Hold the read lock through MarshalXCStrings so it can't race with
+	// concurrent writes from a running translation job.
 	s.mu.RLock()
 	xc := s.xcstrings
 	name := s.fileName
-	s.mu.RUnlock()
-
 	if xc == nil {
+		s.mu.RUnlock()
 		return fiber.NewError(fiber.StatusNotFound, "no xcstrings loaded")
 	}
-
 	data, err := model.MarshalXCStrings(xc)
+	s.mu.RUnlock()
 	if err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
@@ -231,12 +240,17 @@ func (s *ServerState) handleTranslate(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "targetLanguages is required")
 	}
 
-	s.mu.RLock()
+	// Hold the write lock to reject overlapping jobs and to safely mutate the
+	// shared xcstrings (source language) and build the request set.
+	s.mu.Lock()
 	xc := s.xcstrings
-	s.mu.RUnlock()
-
 	if xc == nil {
+		s.mu.Unlock()
 		return fiber.NewError(fiber.StatusBadRequest, "upload a xcstrings file first")
+	}
+	if s.job != nil && s.job.Status == "running" {
+		s.mu.Unlock()
+		return fiber.NewError(fiber.StatusConflict, "a translation job is already running")
 	}
 
 	if req.SourceLanguage != "" {
@@ -244,7 +258,14 @@ func (s *ServerState) handleTranslate(c *fiber.Ctx) error {
 	}
 
 	requests := translator.CreateTranslationRequests(xc, req.TargetLanguages)
-	job := s.startJob(len(requests))
+	job := &Job{
+		ID:        uuid.NewString(),
+		Status:    "running",
+		Total:     len(requests),
+		UpdatedAt: time.Now(),
+	}
+	s.job = job
+	s.mu.Unlock()
 
 	// If nothing to do, finish immediately.
 	if len(requests) == 0 {
@@ -257,12 +278,16 @@ func (s *ServerState) handleTranslate(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"jobId": job.ID})
 }
 
+// buildPayload assembles the UI payload. It holds the read lock for its whole
+// duration so the map reads in collectLanguages/flattenEntries cannot race with
+// writes from applyResponse. Callers must NOT already hold s.mu.
 func (s *ServerState) buildPayload(targets []string) *Payload {
 	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	xc := s.xcstrings
 	name := s.fileName
 	rememberedTargets := s.targetLanguages
-	s.mu.RUnlock()
 
 	if xc == nil {
 		return nil
@@ -398,20 +423,6 @@ func dedupe(list []string) []string {
 	return out
 }
 
-func (s *ServerState) startJob(total int) *Job {
-	job := &Job{
-		ID:        uuid.NewString(),
-		Status:    "running",
-		Done:      0,
-		Total:     total,
-		UpdatedAt: time.Now(),
-	}
-	s.mu.Lock()
-	s.job = job
-	s.mu.Unlock()
-	return job
-}
-
 func (s *ServerState) incrementJob(delta int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -465,8 +476,10 @@ func (s *ServerState) runTranslation(job *Job, xc *model.XCStrings, req Translat
 		}
 	}
 
-	responses, translateErr := translator.TranslatePerLanguage(ctx, xc, req.TargetLanguages, service, progressBuilder)
-	translator.ApplyTranslations(xc, responses)
+	// Translations are applied incrementally via applyResponse in the progress
+	// callback (under s.mu), so we don't re-apply the full response set here —
+	// doing so would duplicate work and race with concurrent payload readers.
+	_, translateErr := translator.TranslatePerLanguage(ctx, xc, req.TargetLanguages, service, progressBuilder)
 
 	if len(req.TargetLanguages) > 0 {
 		s.mu.Lock()
