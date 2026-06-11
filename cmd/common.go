@@ -80,6 +80,13 @@ func float64Flag(cmd *cobra.Command, name, viperKey string) float64 {
 // runTranslation executes the shared load → translate → apply → save pipeline
 // used by every provider subcommand.
 func runTranslation(g globalOptions, providerName string, provider model.TranslationProvider, timeout time.Duration) error {
+	if g.InputFile == "" {
+		return fmt.Errorf("input file path is required; set --input or global.input_file in the config")
+	}
+	if g.OutputFile == "" {
+		return fmt.Errorf("output file path is required; set --output or global.output_file in the config")
+	}
+
 	if g.Verbose {
 		fmt.Printf("Starting %s with:\n", providerName)
 		fmt.Printf("  Input file: %s\n", g.InputFile)
