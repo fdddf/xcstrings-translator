@@ -161,22 +161,20 @@ func (s *AppleConnectService) SyncLocalizations(appID uint, issuerID, keyID, pri
 			}
 
 			updateData := map[string]interface{}{
-				"Name":                name,
-				"Subtitle":            locData.Attributes.Subtitle,
-				"PrivacyURL":          locData.Attributes.PrivacyURL,
-				"MarketingURL":        locData.Attributes.MarketingURL,
-				"SupportURL":          locData.Attributes.SupportURL,
-				"DownloadDescription": locData.Attributes.DownloadDescription,
-				"ShortDescription":    locData.Attributes.ShortDescription,
-				"LongDescription":     locData.Attributes.Description,
-				"Keywords":            locData.Attributes.Keywords,
-				"WhatsNew":            locData.Attributes.WhatsNew,
-				"PromotionalText":     locData.Attributes.PromotionalText,
-				"Source":              "apple",
-				"SyncStatus":          "synced",
-				"SyncedAt":            time.Now(),
-				"Version":             versionString,
-				"VersionState":        versionState,
+				"Name":            name,
+				"Subtitle":        locData.Attributes.Subtitle,
+				"PrivacyURL":      locData.Attributes.PrivacyURL,
+				"MarketingURL":    locData.Attributes.MarketingURL,
+				"SupportURL":      locData.Attributes.SupportURL,
+				"Description":     locData.Attributes.Description,
+				"Keywords":        locData.Attributes.Keywords,
+				"WhatsNew":        locData.Attributes.WhatsNew,
+				"PromotionalText": locData.Attributes.PromotionalText,
+				"Source":          "apple",
+				"SyncStatus":      "synced",
+				"SyncedAt":        time.Now(),
+				"Version":         versionString,
+				"VersionState":    versionState,
 			}
 
 			err = s.AppLocalizationService.UpdateAppLocalization(appID, locData.Attributes.Locale, updateData)
@@ -277,11 +275,10 @@ func (s *AppleConnectService) isLocalizationDifferent(localLoc *database.AppLoca
 		localLoc.PrivacyURL != appleLoc.Attributes.PrivacyURL ||
 		localLoc.MarketingURL != appleLoc.Attributes.MarketingURL ||
 		localLoc.SupportURL != appleLoc.Attributes.SupportURL ||
-		localLoc.Description != appleLoc.Attributes.DownloadDescription ||
-		"" != appleLoc.Attributes.ShortDescription ||
 		localLoc.Description != appleLoc.Attributes.Description ||
 		localLoc.Keywords != appleLoc.Attributes.Keywords ||
-		localLoc.WhatsNew != appleLoc.Attributes.WhatsNew
+		localLoc.WhatsNew != appleLoc.Attributes.WhatsNew ||
+		localLoc.PromotionalText != appleLoc.Attributes.PromotionalText
 }
 
 // GetChangedLocalizations returns localizations that have been changed since the last sync with Apple
@@ -344,22 +341,20 @@ func (s *AppleConnectService) pullLocalizationFromApple(appID uint, languageCode
 
 	// Prepare update data
 	updates := map[string]interface{}{
-		"Name":                name,
-		"Subtitle":            appleLocalization.Attributes.Subtitle,
-		"PrivacyURL":          appleLocalization.Attributes.PrivacyURL,
-		"MarketingURL":        appleLocalization.Attributes.MarketingURL,
-		"SupportURL":          appleLocalization.Attributes.SupportURL,
-		"DownloadDescription": appleLocalization.Attributes.DownloadDescription,
-		"ShortDescription":    appleLocalization.Attributes.ShortDescription,
-		"LongDescription":     appleLocalization.Attributes.Description,
-		"Keywords":            appleLocalization.Attributes.Keywords,
-		"WhatsNew":            appleLocalization.Attributes.WhatsNew,
-		"PromotionalText":     appleLocalization.Attributes.PromotionalText,
-		"Source":              "apple",
-		"SyncStatus":          "synced",
-		"SyncedAt":            time.Now(),
-		"Version":             versionString,
-		"VersionState":        versionState,
+		"Name":            name,
+		"Subtitle":        appleLocalization.Attributes.Subtitle,
+		"PrivacyURL":      appleLocalization.Attributes.PrivacyURL,
+		"MarketingURL":    appleLocalization.Attributes.MarketingURL,
+		"SupportURL":      appleLocalization.Attributes.SupportURL,
+		"Description":     appleLocalization.Attributes.Description,
+		"Keywords":        appleLocalization.Attributes.Keywords,
+		"WhatsNew":        appleLocalization.Attributes.WhatsNew,
+		"PromotionalText": appleLocalization.Attributes.PromotionalText,
+		"Source":          "apple",
+		"SyncStatus":      "synced",
+		"SyncedAt":        time.Now(),
+		"Version":         versionString,
+		"VersionState":    versionState,
 	}
 
 	return s.AppLocalizationService.UpdateAppLocalization(appID, languageCode, updates)

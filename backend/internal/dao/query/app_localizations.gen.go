@@ -38,16 +38,16 @@ func newAppLocalization(db *gorm.DB, opts ...gen.DOOption) appLocalization {
 	_appLocalization.PrivacyURL = field.NewString(tableName, "privacy_url")
 	_appLocalization.MarketingURL = field.NewString(tableName, "marketing_url")
 	_appLocalization.SupportURL = field.NewString(tableName, "support_url")
-	_appLocalization.DownloadDescription = field.NewString(tableName, "download_description")
-	_appLocalization.ShortDescription = field.NewString(tableName, "short_description")
-	_appLocalization.LongDescription = field.NewString(tableName, "long_description")
+	_appLocalization.Description = field.NewString(tableName, "description")
 	_appLocalization.Keywords = field.NewString(tableName, "keywords")
-	_appLocalization.ReleaseNotes = field.NewString(tableName, "release_notes")
+	_appLocalization.WhatsNew = field.NewString(tableName, "whats_new")
 	_appLocalization.PromotionalText = field.NewString(tableName, "promotional_text")
 	_appLocalization.WhatToTest = field.NewString(tableName, "what_to_test")
 	_appLocalization.SyncedAt = field.NewTime(tableName, "synced_at")
 	_appLocalization.Source = field.NewString(tableName, "source")
 	_appLocalization.SyncStatus = field.NewString(tableName, "sync_status")
+	_appLocalization.Version = field.NewString(tableName, "version")
+	_appLocalization.VersionState = field.NewString(tableName, "version_state")
 	_appLocalization.Locale = field.NewString(tableName, "locale")
 	_appLocalization.App = appLocalizationBelongsToApp{
 		db: db.Session(&gorm.Session{}),
@@ -80,16 +80,16 @@ type appLocalization struct {
 	PrivacyURL          field.String
 	MarketingURL        field.String
 	SupportURL          field.String
-	DownloadDescription field.String
-	ShortDescription    field.String
-	LongDescription     field.String
+	Description         field.String
 	Keywords            field.String
-	ReleaseNotes        field.String
+	WhatsNew            field.String
 	PromotionalText     field.String
 	WhatToTest          field.String
 	SyncedAt            field.Time
 	Source              field.String
 	SyncStatus          field.String
+	Version             field.String
+	VersionState        field.String
 	Locale              field.String
 	App                 appLocalizationBelongsToApp
 
@@ -119,16 +119,16 @@ func (a *appLocalization) updateTableName(table string) *appLocalization {
 	a.PrivacyURL = field.NewString(table, "privacy_url")
 	a.MarketingURL = field.NewString(table, "marketing_url")
 	a.SupportURL = field.NewString(table, "support_url")
-	a.DownloadDescription = field.NewString(table, "download_description")
-	a.ShortDescription = field.NewString(table, "short_description")
-	a.LongDescription = field.NewString(table, "long_description")
+	a.Description = field.NewString(table, "description")
 	a.Keywords = field.NewString(table, "keywords")
-	a.ReleaseNotes = field.NewString(table, "release_notes")
+	a.WhatsNew = field.NewString(table, "whats_new")
 	a.PromotionalText = field.NewString(table, "promotional_text")
 	a.WhatToTest = field.NewString(table, "what_to_test")
 	a.SyncedAt = field.NewTime(table, "synced_at")
 	a.Source = field.NewString(table, "source")
 	a.SyncStatus = field.NewString(table, "sync_status")
+	a.Version = field.NewString(table, "version")
+	a.VersionState = field.NewString(table, "version_state")
 	a.Locale = field.NewString(table, "locale")
 
 	a.fillFieldMap()
@@ -158,16 +158,16 @@ func (a *appLocalization) fillFieldMap() {
 	a.fieldMap["privacy_url"] = a.PrivacyURL
 	a.fieldMap["marketing_url"] = a.MarketingURL
 	a.fieldMap["support_url"] = a.SupportURL
-	a.fieldMap["download_description"] = a.DownloadDescription
-	a.fieldMap["short_description"] = a.ShortDescription
-	a.fieldMap["long_description"] = a.LongDescription
+	a.fieldMap["description"] = a.Description
 	a.fieldMap["keywords"] = a.Keywords
-	a.fieldMap["release_notes"] = a.ReleaseNotes
+	a.fieldMap["whats_new"] = a.WhatsNew
 	a.fieldMap["promotional_text"] = a.PromotionalText
 	a.fieldMap["what_to_test"] = a.WhatToTest
 	a.fieldMap["synced_at"] = a.SyncedAt
 	a.fieldMap["source"] = a.Source
 	a.fieldMap["sync_status"] = a.SyncStatus
+	a.fieldMap["version"] = a.Version
+	a.fieldMap["version_state"] = a.VersionState
 	a.fieldMap["locale"] = a.Locale
 
 }

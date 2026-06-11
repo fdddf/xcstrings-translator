@@ -151,6 +151,8 @@ type App struct {
 	Origin            string `gorm:"type:varchar(20);default:'manual'" json:"origin"` // manual, synced
 
 	// App metadata
+	ShortDescription string `json:"shortDescription"` // Short description / promotional text
+	LongDescription  string `json:"longDescription"`  // Full app description
 	Keywords    string `json:"keywords"` // Comma-separated keywords
 	SupportURL  string `json:"supportUrl"`
 	MarketingURL string `json:"marketingUrl"`
