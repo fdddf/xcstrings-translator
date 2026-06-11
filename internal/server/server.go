@@ -465,8 +465,10 @@ func (s *ServerState) runTranslation(job *Job, xc *model.XCStrings, req Translat
 		}
 	}
 
-	responses, translateErr := translator.TranslatePerLanguage(ctx, xc, req.TargetLanguages, service, progressBuilder)
-	translator.ApplyTranslations(xc, responses)
+	// Translations are applied incrementally via applyResponse in the progress
+	// callback (under s.mu), so we don't re-apply the full response set here —
+	// doing so would duplicate work and race with concurrent payload readers.
+	_, translateErr := translator.TranslatePerLanguage(ctx, xc, req.TargetLanguages, service, progressBuilder)
 
 	if len(req.TargetLanguages) > 0 {
 		s.mu.Lock()
